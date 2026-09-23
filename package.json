@@ -8,7 +8,7 @@
     "url": "https://github.com/ju0o/Vibecoding-Basic-app.git"
   },
   "homepage": "https://github.com/ju0o/Vibecoding-Basic-app",
-  "main": "src/main/main.js",
+  "main": "src/main/v4-bootstrap.js",
   "scripts": {
     "start": "node scripts/start-electron.js",
     "dev": "npm start",

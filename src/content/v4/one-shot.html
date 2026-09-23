@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;">
+  <title>개발 세계 한방 이해 · JuCoding V4</title>
+  <link rel="stylesheet" href="./one-shot.css">
+</head>
+<body>
+  <div class="deck-shell">
+    <header class="deck-top">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <strong>JuCoding</strong>
+        <span>ONE SHOT · NON-DEVELOPER MAP</span>
+      </div>
+      <div class="top-actions">
+        <button id="btn-map" type="button">전체 지도</button>
+        <button id="btn-chapters" type="button">강의 목차</button>
+        <button id="btn-notes" type="button">강사 큐</button>
+      </div>
+    </header>
+
+    <main class="stage-wrap">
+      <section id="stage" class="stage" aria-live="polite"></section>
+
+      <aside id="speaker-cue" class="speaker-cue" aria-hidden="true">
+        <div class="cue-label">SAY THIS</div>
+        <strong id="cue-title"></strong>
+        <p id="cue-body"></p>
+        <div id="cue-extra" class="cue-extra"></div>
+      </aside>
+    </main>
+
+    <footer class="deck-footer">
+      <button id="prev" class="nav-button" type="button">← 이전</button>
+      <div class="progress-area">
+        <div class="meta">
+          <span id="chapter-label"></span>
+          <span id="scene-counter"></span>
+        </div>
+        <div class="progress"><i id="progress-bar"></i></div>
+      </div>
+      <button id="next" class="nav-button primary" type="button">다음 →</button>
+    </footer>
+  </div>
+
+  <dialog id="chapter-dialog">
+    <div class="dialog-head">
+      <div><span>COURSE MAP</span><h2>오늘 한 번에 보는 개발 세계</h2></div>
+      <button class="close-dialog" data-close="chapter-dialog" type="button">×</button>
+    </div>
+    <div id="chapter-grid" class="chapter-grid"></div>
+  </dialog>
+
+  <dialog id="map-dialog">
+    <div class="dialog-head">
+      <div><span>MASTER MAP</span><h2>아이디어가 실제 서비스가 되는 길</h2></div>
+      <button class="close-dialog" data-close="map-dialog" type="button">×</button>
+    </div>
+    <div class="master-map">
+      <div class="map-track product">
+        <span>생각</span><b>IDEA</b><i>→</i><b>PRD</b><i>→</i><b>USER FLOW</b><i>→</i><b>PROTOTYPE</b>
+      </div>
+      <div class="map-track build">
+        <span>만들기</span><b>FRONTEND</b><i>→</i><b>API</b><i>→</i><b>BACKEND</b><i>→</i><b>DATABASE</b>
+      </div>
+      <div class="map-track dev">
+        <span>개발 도구</span><b>NODE / NPM</b><i>·</i><b>REACT / NEXT</b><i>·</i><b>GIT / GITHUB</b>
+      </div>
+      <div class="map-track release">
+        <span>세상에 공개</span><b>DEPLOY</b><i>→</i><b>PUBLIC URL</b><i>→</i><b>USER</b>
+      </div>
+      <div class="map-track agent">
+        <span>AI 작업자</span><b>HUMAN GOAL</b><i>→</i><b>AGENT</b><i>→</i><b>TOOLS / MCP</b><i>→</i><b>CODE & ACTION</b>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="./one-shot.js"></script>
+</body>
+</html>
