@@ -26,6 +26,12 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Install Korean font for visual QA
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-noto-cjk
+          fc-cache -f
+
       - name: Configure Electron sandbox
         run: |
           sudo chown root:root node_modules/electron/dist/chrome-sandbox
@@ -34,28 +40,25 @@ jobs:
       - name: Static check
         run: npm run check
 
-      - name: Legacy Electron app smoke (diagnostic)
-        continue-on-error: true
+      - name: Existing Electron app smoke
         run: xvfb-run -a npm run smoke:app
 
-      - name: Legacy track smoke (diagnostic)
-        continue-on-error: true
+      - name: Existing track smoke
         run: xvfb-run -a npm run smoke:tracks
 
+      - name: JuCoding V4 shell smoke
+        run: xvfb-run -a npm run smoke:v4:shell
+
       - name: JuCoding V4 lecture smoke
-        id: v4smoke
-        continue-on-error: true
         run: xvfb-run -a npm run smoke:v4
 
-      - name: Print V4 smoke report
+      - name: Print V4 reports
         if: always()
         run: |
-          echo '--- V4 REPORT ---'
+          echo '--- V4 SHELL REPORT ---'
+          cat artifacts/qa/jucoding-shell-1366x768.json || true
+          echo '--- V4 LECTURE REPORT ---'
           cat artifacts/qa/jucoding-v4-1366x768.json || true
-
-      - name: Enforce V4 smoke result
-        if: steps.v4smoke.outcome != 'success'
-        run: exit 1
 
       - name: Upload QA evidence
         if: always()
