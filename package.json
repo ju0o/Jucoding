@@ -1,13 +1,13 @@
 {
   "name": "vibe-coding-basic-class-app",
   "version": "3.0.0-beta.3",
-  "description": "현장 운영 과정과 차기 커리큘럼을 함께 관리하는 VIBE STUDIO 강의 스튜디오",
+  "description": "AI·Agent·바이브코딩을 시각적으로 가르치는 JuCoding Electron 강의 스튜디오",
   "author": "ju0o",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ju0o/Vibecoding-Basic-app.git"
+    "url": "https://github.com/ju0o/Jucoding.git"
   },
-  "homepage": "https://github.com/ju0o/Vibecoding-Basic-app",
+  "homepage": "https://github.com/ju0o/Jucoding",
   "main": "src/main/v4-bootstrap.js",
   "scripts": {
     "start": "node scripts/start-electron.js",
@@ -42,8 +42,8 @@
   },
   "build": {
     "appId": "kr.blankory.vibecoding.basic",
-    "productName": "VIBE STUDIO",
-    "artifactName": "VIBE STUDIO ${version}.${ext}",
+    "productName": "JuCoding",
+    "artifactName": "JuCoding ${version}.${ext}",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -65,7 +65,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "VIBE STUDIO"
+      "shortcutName": "JuCoding"
     }
   },
   "dependencies": {
