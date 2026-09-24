@@ -1,0 +1,233 @@
+/* JuCoding V4 — pastel lecture-studio overlay
+   Keeps the V3 DOM/behavior intact while translating the visible shell
+   to the JuCoding classroom prototype direction. */
+
+:root {
+  --jv4-navy: #111a31;
+  --jv4-navy-2: #0a1020;
+  --jv4-purple: #7357ff;
+  --jv4-blue: #4d7cff;
+  --jv4-cyan: #69cfff;
+  --jv4-mint: #6ed9b6;
+  --jv4-pink: #ff78b3;
+  --jv4-orange: #ffad66;
+  --jv4-paper: #f8f9ff;
+  --jv4-ink: #151b31;
+  --jv4-muted: #6c7592;
+  --jv4-line: #e1e6f5;
+  --jv4-shadow: 0 18px 48px rgba(69, 76, 126, .13);
+
+  --bg-app: #edf1ff;
+  --bg: #f8f9ff;
+  --surface: #ffffff;
+  --surface-2: #f5f7ff;
+  --surface-3: #eef2ff;
+  --line: #e2e7f5;
+  --line-soft: #edf0f9;
+  --text: var(--jv4-ink);
+  --text-2: #303955;
+  --muted: var(--jv4-muted);
+  --quiet: #9ba4be;
+  --brand: var(--jv4-purple);
+  --brand-strong: #5b43e8;
+  --brand-ink: #fff;
+  --brand-soft: rgba(115, 87, 255, .11);
+  --brand-soft-2: rgba(115, 87, 255, .06);
+  --brand-border: rgba(115, 87, 255, .22);
+  --selection-ink: var(--jv4-purple);
+  --selection-soft: rgba(115, 87, 255, .10);
+  --selection-border: rgba(115, 87, 255, .18);
+  --radius-xl: 28px;
+  --radius-lg: 22px;
+  --radius: 18px;
+  --radius-sm: 14px;
+}
+
+html[data-jucoding-v4="true"] body {
+  background:
+    radial-gradient(circle at 15% 5%, rgba(116, 87, 255, .13), transparent 25rem),
+    radial-gradient(circle at 90% 90%, rgba(105, 207, 255, .14), transparent 29rem),
+    #edf1ff;
+}
+
+html[data-jucoding-v4="true"] .studio-shell {
+  grid-template-columns: 250px minmax(350px, 430px) minmax(650px, 1fr);
+  gap: 12px;
+  padding: 12px;
+  background: transparent;
+}
+
+/* Dark JuCoding rail */
+html[data-jucoding-v4="true"] .course-rail {
+  padding: 23px 15px 18px;
+  color: #eef2ff;
+  border: 1px solid rgba(255,255,255,.08);
+  background:
+    radial-gradient(circle at 25% 0%, rgba(107, 91, 255, .26), transparent 17rem),
+    linear-gradient(180deg, var(--jv4-navy), var(--jv4-navy-2));
+  box-shadow: 0 22px 54px rgba(18, 26, 52, .28);
+}
+html[data-jucoding-v4="true"] .brand { padding: 4px 7px 25px; }
+html[data-jucoding-v4="true"] .brand-mark {
+  width: 46px; height: 46px; border-radius: 15px;
+  background: linear-gradient(145deg, #9a78ff 0%, #596eff 48%, #5bc9ff 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 10px 24px rgba(86, 92, 255, .35);
+  font-size: 21px;
+}
+html[data-jucoding-v4="true"] .brand strong { color: #fff; font-size: 18px; font-weight: 850; letter-spacing: -.03em; }
+html[data-jucoding-v4="true"] .brand span { color: #9faad0; font-size: 10px; letter-spacing: .04em; line-height: 1.45; }
+html[data-jucoding-v4="true"] .rail-label,
+html[data-jucoding-v4="true"] .rail-toggle,
+html[data-jucoding-v4="true"] .rail-muted,
+html[data-jucoding-v4="true"] .rail-footer { color: #8e99bd; }
+html[data-jucoding-v4="true"] .rail-count,
+html[data-jucoding-v4="true"] .tool-badge { color: #c7cff0; background: rgba(255,255,255,.09); }
+html[data-jucoding-v4="true"] .rail-search {
+  color: #d7ddf6;
+  background: rgba(255,255,255,.075);
+  border-color: rgba(255,255,255,.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+html[data-jucoding-v4="true"] .rail-search:hover { background: rgba(255,255,255,.12); border-color: rgba(143,165,255,.38); }
+html[data-jucoding-v4="true"] .rail-search-copy { color: #bcc6e8; }
+html[data-jucoding-v4="true"] .rail-search-icon,
+html[data-jucoding-v4="true"] .rail-search kbd { color: #8f9ac0; }
+html[data-jucoding-v4="true"] .rail-search kbd { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.08); }
+html[data-jucoding-v4="true"] .course-button { color: #dce3ff; }
+html[data-jucoding-v4="true"] .course-button:hover { background: rgba(255,255,255,.075); }
+html[data-jucoding-v4="true"] .course-button.active {
+  background: linear-gradient(135deg, rgba(104, 96, 255, .30), rgba(80, 122, 255, .20));
+  border-color: rgba(151, 157, 255, .23);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+}
+html[data-jucoding-v4="true"] .course-button.active::before { background: #9d8cff; box-shadow: 0 0 18px rgba(157,140,255,.42); }
+html[data-jucoding-v4="true"] .course-button b { color: #f7f8ff; }
+html[data-jucoding-v4="true"] .course-button small { color: #9da8cc; }
+html[data-jucoding-v4="true"] .course-code,
+html[data-jucoding-v4="true"] .course-color {
+  color: #f5f2ff !important;
+  background: linear-gradient(145deg, #8a6fff, #5878ff) !important;
+  border-color: rgba(255,255,255,.17) !important;
+}
+html[data-jucoding-v4="true"] .rail-tools { border-top-color: rgba(255,255,255,.08); }
+html[data-jucoding-v4="true"] .rail-tool {
+  background: rgba(255,255,255,.055);
+  border-color: rgba(255,255,255,.075);
+}
+html[data-jucoding-v4="true"] .rail-tool:hover { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.12); }
+html[data-jucoding-v4="true"] .rail-tool b { color: #edf1ff; }
+html[data-jucoding-v4="true"] .rail-tool small { color: #9da8cc; }
+html[data-jucoding-v4="true"] .tool-icon { color: #bdc8f2; background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.08); }
+html[data-jucoding-v4="true"] .course-rail .icon-button { color: #dbe2ff; background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.09); }
+
+/* Paper-like curriculum/content surfaces */
+html[data-jucoding-v4="true"] .lesson-pane,
+html[data-jucoding-v4="true"] .detail-pane {
+  border: 1px solid rgba(225,230,245,.9);
+  background: rgba(255,255,255,.91);
+  box-shadow: var(--jv4-shadow);
+}
+html[data-jucoding-v4="true"] .lesson-pane {
+  background:
+    linear-gradient(180deg, rgba(245,247,255,.96), rgba(255,255,255,.96));
+}
+html[data-jucoding-v4="true"] .pane-header h1,
+html[data-jucoding-v4="true"] .detail-content h1,
+html[data-jucoding-v4="true"] .detail-content h2,
+html[data-jucoding-v4="true"] .detail-content h3 { color: var(--jv4-ink); }
+html[data-jucoding-v4="true"] .kicker { color: var(--jv4-purple); }
+html[data-jucoding-v4="true"] .course-tabs button.active,
+html[data-jucoding-v4="true"] .list-view-tabs button.active {
+  color: #5e49e8;
+  background: rgba(115,87,255,.10);
+  border-color: rgba(115,87,255,.18);
+}
+html[data-jucoding-v4="true"] .lesson-row,
+html[data-jucoding-v4="true"] .lesson-card,
+html[data-jucoding-v4="true"] .resource-row,
+html[data-jucoding-v4="true"] .detail-card {
+  border-color: var(--jv4-line);
+  border-radius: 18px;
+}
+html[data-jucoding-v4="true"] .lesson-row:hover,
+html[data-jucoding-v4="true"] .lesson-card:hover {
+  border-color: rgba(115,87,255,.24);
+  box-shadow: 0 12px 32px rgba(77,83,146,.09);
+}
+html[data-jucoding-v4="true"] .detail-topbar {
+  background: rgba(255,255,255,.78);
+  backdrop-filter: blur(20px) saturate(145%);
+  border-bottom-color: var(--jv4-line);
+}
+html[data-jucoding-v4="true"] .topbar-button,
+html[data-jucoding-v4="true"] .icon-button {
+  border-color: var(--jv4-line);
+  background: #fff;
+  color: #69728e;
+  box-shadow: 0 5px 15px rgba(65,73,123,.06);
+}
+html[data-jucoding-v4="true"] .topbar-button:hover,
+html[data-jucoding-v4="true"] .icon-button:hover {
+  color: #6049e8;
+  border-color: rgba(115,87,255,.24);
+  background: #faf9ff;
+}
+
+/* Player becomes a bright projector-friendly lecture surface */
+html[data-jucoding-v4="true"] .player { background: #eef2ff; }
+html[data-jucoding-v4="true"] .player-bar,
+html[data-jucoding-v4="true"] .player-footer {
+  color: var(--jv4-ink);
+  background: rgba(255,255,255,.94);
+  border-color: var(--jv4-line);
+}
+html[data-jucoding-v4="true"] .player-back,
+html[data-jucoding-v4="true"] .player-footer button,
+html[data-jucoding-v4="true"] .complete-button {
+  border-color: var(--jv4-line);
+  color: #5d6681;
+  background: #fff;
+}
+html[data-jucoding-v4="true"] .complete-button.completed,
+html[data-jucoding-v4="true"] .player-footer button:last-child {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #765cff, #4d7cff);
+}
+html[data-jucoding-v4="true"] .webview-wrap {
+  margin: 10px;
+  border: 1px solid var(--jv4-line);
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 18px 45px rgba(69,76,126,.12);
+  background: #fff;
+}
+html[data-jucoding-v4="true"] .notes-panel {
+  color: var(--jv4-ink);
+  background: #fff;
+  border-left-color: var(--jv4-line);
+}
+html[data-jucoding-v4="true"] .notes-kicker { color: var(--jv4-purple); }
+html[data-jucoding-v4="true"] .notes-panel textarea {
+  color: var(--jv4-ink);
+  border-color: var(--jv4-line);
+  background: #f8f9ff;
+}
+
+/* Drawer + command palette */
+html[data-jucoding-v4="true"] .utility-drawer,
+html[data-jucoding-v4="true"] .command-box {
+  color: var(--jv4-ink);
+  background: rgba(255,255,255,.98);
+  border-color: var(--jv4-line);
+  box-shadow: 0 28px 80px rgba(37,45,91,.22);
+}
+html[data-jucoding-v4="true"] .command-results button:hover,
+html[data-jucoding-v4="true"] .command-results button.active { background: rgba(115,87,255,.08); }
+
+@media (max-width: 1280px) {
+  html[data-jucoding-v4="true"] .studio-shell {
+    grid-template-columns: 225px minmax(310px, 370px) minmax(570px, 1fr);
+  }
+  html[data-jucoding-v4="true"] .brand span { display: none; }
+}
