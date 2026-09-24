@@ -4,21 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;">
-  <title>개발 세계 한방 이해 · JuCoding V4</title>
+  <title>JuCoding · AI · Agent · 바이브코딩</title>
   <link rel="stylesheet" href="./one-shot.css">
 </head>
 <body>
   <div class="deck-shell">
     <header class="deck-top">
       <div class="brand">
-        <span class="brand-dot"></span>
-        <strong>JuCoding</strong>
-        <span>ONE SHOT · NON-DEVELOPER MAP</span>
+        <span class="brand-cube">J</span>
+        <div>
+          <strong>JuCoding</strong>
+          <span>AI · AGENT · VIBE CODING STUDY</span>
+        </div>
       </div>
       <div class="top-actions">
-        <button id="btn-map" type="button">전체 지도</button>
-        <button id="btn-chapters" type="button">강의 목차</button>
-        <button id="btn-notes" type="button">강사 큐</button>
+        <button id="btn-map" type="button">전체 흐름</button>
+        <button id="btn-chapters" type="button">목차</button>
+        <button id="btn-notes" type="button">강사 메모</button>
       </div>
     </header>
 
@@ -26,7 +28,7 @@
       <section id="stage" class="stage" aria-live="polite"></section>
 
       <aside id="speaker-cue" class="speaker-cue" aria-hidden="true">
-        <div class="cue-label">SAY THIS</div>
+        <div class="cue-label">강사 메모</div>
         <strong id="cue-title"></strong>
         <p id="cue-body"></p>
         <div id="cue-extra" class="cue-extra"></div>
@@ -48,7 +50,7 @@
 
   <dialog id="chapter-dialog">
     <div class="dialog-head">
-      <div><span>COURSE MAP</span><h2>오늘 한 번에 보는 개발 세계</h2></div>
+      <div><span>3 HOUR STUDY</span><h2>오늘의 6개 흐름</h2></div>
       <button class="close-dialog" data-close="chapter-dialog" type="button">×</button>
     </div>
     <div id="chapter-grid" class="chapter-grid"></div>
@@ -56,25 +58,16 @@
 
   <dialog id="map-dialog">
     <div class="dialog-head">
-      <div><span>MASTER MAP</span><h2>아이디어가 실제 서비스가 되는 길</h2></div>
+      <div><span>MASTER FLOW</span><h2>아이디어가 실제 도구가 되는 길</h2></div>
       <button class="close-dialog" data-close="map-dialog" type="button">×</button>
     </div>
     <div class="master-map">
-      <div class="map-track product">
-        <span>생각</span><b>IDEA</b><i>→</i><b>PRD</b><i>→</i><b>USER FLOW</b><i>→</i><b>PROTOTYPE</b>
-      </div>
-      <div class="map-track build">
-        <span>만들기</span><b>FRONTEND</b><i>→</i><b>API</b><i>→</i><b>BACKEND</b><i>→</i><b>DATABASE</b>
-      </div>
-      <div class="map-track dev">
-        <span>개발 도구</span><b>NODE / NPM</b><i>·</i><b>REACT / NEXT</b><i>·</i><b>GIT / GITHUB</b>
-      </div>
-      <div class="map-track release">
-        <span>세상에 공개</span><b>DEPLOY</b><i>→</i><b>PUBLIC URL</b><i>→</i><b>USER</b>
-      </div>
-      <div class="map-track agent">
-        <span>AI 작업자</span><b>HUMAN GOAL</b><i>→</i><b>AGENT</b><i>→</i><b>TOOLS / MCP</b><i>→</i><b>CODE & ACTION</b>
-      </div>
+      <div class="map-track"><span>1</span><b>AI 이해</b><i>→</i><b>Agent 이해</b><i>→</i><b>왜 바이브코딩?</b></div>
+      <div class="map-track"><span>2</span><b>Frontend</b><i>↔</i><b>API</b><i>↔</i><b>Backend</b><i>↔</i><b>Database</b></div>
+      <div class="map-track"><span>3</span><b>PRD</b><i>→</i><b>WBS</b><i>→</i><b>Wireframe</b><i>→</i><b>Prototype</b></div>
+      <div class="map-track"><span>4</span><b>ERD / DBML</b><i>→</i><b>SSOT</b><i>→</i><b>구현</b></div>
+      <div class="map-track"><span>5</span><b>개발서버</b><i>→</i><b>배포</b><i>→</i><b>Git / GitHub</b></div>
+      <div class="map-track"><span>6</span><b>Agent</b><i>→</i><b>MCP / Worker</b><i>→</i><b>영상 · SNS 자동화</b></div>
     </div>
   </dialog>
 
