@@ -1,84 +1,242 @@
-# VIBE STUDIO Design System
+# JuCoding V4 Design System
 
-## 1. Atmosphere & Identity
+## 1. Product Identity
 
-VIBE STUDIO is a dark documentary teaching studio: a calm, credible control room where beginners can inspect a real development workflow without being overwhelmed. Its signature is **evidence-led teaching**: a large, legible tool surface paired with only the annotation needed to explain what changed, why it matters, and what to do next.
+JuCoding is a **visual classroom for AI, Agent, and vibe coding beginners**.
 
-## 2. Color
+The UI should feel like a friendly desktop learning studio rather than an enterprise LMS or a developer-only control room.
 
-### Palette
+Primary goals:
 
-| Role | Token | Value | Usage |
-|---|---|---:|---|
-| Studio background | `--bg` | `#080d12` | Full slide surface |
-| Primary panel | `--panel` | `#101820` | Tool simulations |
-| Secondary panel | `--panel-2` | `#131e28` | Nested surfaces |
-| Divider | `--line` | `rgba(224,235,240,.15)` | Tool chrome and separators |
-| Primary text | `--ink` | `#f4f6f3` | Projector-safe headlines |
-| Secondary text | `--muted` | `#aab7bc` | Supporting explanation |
-| Action / connection | `--teal` | `#37d4c1` | Successful flow and interactive actions |
-| Decision / caution | `--amber` | `#f5b951` | Version, review, and security cues |
-| Error / exposure | `--coral` | `#ff737a` | Failed or unsafe states |
-| Verification | `--blue` | `#6f9cff` | Checked external state |
+1. A beginner understands the screen before reading long text.
+2. The instructor can project the app on a beam projector and explain by pointing at diagrams.
+3. Difficult engineering vocabulary is translated into plain Korean first.
+4. Existing V3 player functions (notes, board, print/PDF, fullscreen, offline operation) remain usable.
+5. Visual explanation is primary; paragraphs are supporting material.
+
+V3 documentary assets may remain for legacy sessions, but **V4 visual language is the default direction for new beginner curriculum**.
+
+---
+
+## 2. Atmosphere
+
+Keywords:
+
+- friendly
+- visual
+- calm
+- playful but not childish
+- beginner-safe
+- projector-readable
+- desktop application
+
+Signature composition:
+
+```text
+Dark navy navigation rail
+        +
+Bright paper-like learning canvas
+        +
+Pastel concept cards / diagrams
+        +
+Large Korean teaching labels
+```
+
+Do not turn lecture screens into text documents.
+
+---
+
+## 3. Color
+
+| Role | Value | Usage |
+|---|---|---|
+| Navy rail | `#111a31` | Main desktop navigation |
+| Deep navy | `#0a1020` | Rail depth / footer |
+| Paper | `#ffffff` | Main content surfaces |
+| App background | `#eef2ff` | Window canvas |
+| Primary ink | `#151b31` | Headlines |
+| Muted ink | `#66708f` | Supporting explanation |
+| Purple | `#755cff` | Primary teaching accent |
+| Blue | `#4d7cff` | Flow / links / secondary accent |
+| Cyan | `#65ccff` | Tool / connection concepts |
+| Mint | `#6cd9b4` | Success / API / connected flow |
+| Pink | `#ff7caf` | Highlight / creative automation |
+| Orange | `#ffad66` | Deployment / data / caution |
+| Border | `#e2e7f5` | Card and panel separation |
 
 ### Rules
 
-- Teal confirms a live connection or action. Amber names a decision point. Coral only marks an unsafe or failed state.
-- Realistic tool scenes carry most of the visual weight; decorative gradients and unrelated icons are avoided.
-- Capture-like scenes must remain legible without relying on brand logos.
+- Purple/blue gradients are allowed for identity, primary action, and key teaching phrases.
+- Pastel backgrounds communicate categories, not status severity.
+- Dark navy is primarily navigation chrome; lecture content remains bright.
+- Never depend on color alone to communicate meaning.
 
-## 3. Typography
+---
 
-| Level | Size | Weight | Line Height | Tracking | Usage |
-|---|---:|---:|---:|---:|---|
-| Slide title | `clamp(32px, 3.4vw, 49px)` | 800 | 1.12 | `0` | Projected teaching title |
-| Display | `clamp(49px, 5.6vw, 92px)` | 800 | 1.03 | `0` | Cover only |
-| Tool heading | `18px` | 700 | 1.35 | `0` | Tool panes |
-| Body | `14px` | 500 | 1.55 | `0` | Visible explanation |
-| Mono label | `10-12px` | 700 | 1.4 | `0.08em` | Commands, status, metadata |
+## 4. Typography
 
-- Primary: `Pretendard, Arial, sans-serif`.
-- Mono: `ui-monospace, SFMono-Regular, Consolas, monospace`.
-- Body copy is never below 12px in a projected lecture scene. Code stays at 11px or above.
+Primary:
 
-## 4. Spacing & Layout
+`Pretendard Variable, Pretendard, Noto Sans KR, system-ui, sans-serif`
 
-- Base unit: 4px.
-- Lecture frame: `clamp(34px, 4.9vw, 78px)` horizontal padding and `clamp(28px, 4.1vw, 66px)` top padding.
-- A slide uses one dominant evidence surface. Supplementary panels may support it, but must not become a card grid.
-- At 1280x720 and 1366x768, the slide must not scroll or overlap the presentation navigation.
+### Projector scale
 
-## 5. Components
+| Level | Target |
+|---|---:|
+| Cover hero | `54–112px` responsive |
+| Lecture title | `34–64px` responsive |
+| Card heading | `19–30px` |
+| Core definition | `16–22px` |
+| Body support | `12–15px` |
+| Metadata | `10–11px` |
 
-### Documentary Tool Surface
-- **Structure**: simulated app chrome, focused content pane, concise annotation, optional controls.
-- **Variants**: browser, GitHub repository, terminal, settings editor, data policy editor.
-- **States**: initial, progressing, success, failure, recovered.
-- **Motion**: only transform and opacity. The presenter controls explanation steps; ambient signals may loop quietly.
+Large labels should explain the concept without requiring the body copy.
 
-### Explanation Control
-- **Structure**: clear primary next/start action plus a quiet reset action.
-- **States**: default, hover, focus-visible, active, paused.
-- **Accessibility**: native `button`, visible focus ring, explicit Korean label.
+Example:
 
-## 6. Motion & Interaction
+```text
+프론트엔드
+= 보이는 곳
+```
 
-| Type | Duration | Easing | Usage |
-|---|---:|---|---|
-| Micro | 150ms | ease-out | Hover and press |
-| Standard | 250ms | ease-in-out | Tool state swap |
-| Emphasis | 450ms | `cubic-bezier(.16,1,.3,1)` | Manual scene reveal |
-| Ambient | 2.4-3.2s | ease-in-out | Quiet connection pulse |
+is preferred over a long definition paragraph.
 
-- Explanation-changing steps require a button press.
-- Automatic playback is allowed only for a clearly labelled full-flow replay or quiet background signal.
-- `prefers-reduced-motion` removes non-essential loops and keeps state changes immediate.
+---
 
-## 7. Depth & Surface
+## 5. Lecture Information Pattern
 
-### Strategy
+Beginner concepts use this order when possible:
 
-`mixed`: restrained one-pixel dividers define tool chrome; a single soft shadow separates a documentary surface from the studio background.
+```text
+Hard term
+↓
+Plain Korean translation
+↓
+Visual metaphor / diagram
+↓
+Real example
+↓
+Optional deeper explanation
+```
 
-- Rounded corners: 8-12px for tool windows, 4-6px for controls.
-- No floating decorative cards, pill-heavy layouts, or broad gradient ornaments.
+Example:
+
+```text
+API
+= 서로 말 거는 방법
+Frontend ↔ API ↔ Backend
+```
+
+---
+
+## 6. App Shell
+
+### Left rail
+
+Dark navy.
+
+Contains:
+
+- JuCoding brand
+- courses / lecture entry
+- project / notes tools
+- settings
+- offline readiness
+
+The rail may preserve legacy DOM and behavior, but visible labels should use beginner-friendly Korean.
+
+### Main surfaces
+
+- light background
+- 18–28px rounded panels
+- subtle purple/blue shadow
+- generous whitespace
+- no dense enterprise tables unless the content specifically teaches tables
+
+### Player
+
+Player should feel like a presentation surface.
+
+Required existing capabilities to preserve:
+
+- previous / next
+- fullscreen
+- instructor notes
+- board annotation
+- print/PDF where already supported
+- offline lecture content
+
+---
+
+## 7. Lecture Cards and Diagrams
+
+Recommended components:
+
+- concept card
+- before/after comparison
+- process arrows
+- simple architecture diagram
+- workflow
+- large quote / key idea
+- interactive beginner form
+
+Avoid decorative cards that do not teach anything.
+
+Every card should answer one of:
+
+- What is it?
+- Why is it needed?
+- Where does it connect?
+- What happens next?
+
+---
+
+## 8. Motion
+
+Motion is supportive only.
+
+| Type | Duration |
+|---|---:|
+| Hover | 120–180ms |
+| Slide entry | 250–320ms |
+| Dialog / cue | 180–240ms |
+
+Rules:
+
+- no automatic lecture progression
+- instructor controls scene changes
+- respect `prefers-reduced-motion`
+- avoid background motion that competes with projected explanation
+
+---
+
+## 9. Teaching Interaction
+
+V4 may include tiny interactive exercises inside slides.
+
+Examples:
+
+- “What do you want to build?” → project summary
+- repetitive task → automation flow
+- choice of web/desktop/mobile/CLI
+
+These are for understanding, not a full LMS assessment system.
+
+---
+
+## 10. Current V4 Reference Curriculum
+
+The first V4 reference experience is:
+
+`src/content/v4/one-shot.html`
+
+It follows six sections:
+
+1. 왜 바이브코딩인가?
+2. AI와 Agent
+3. 기본 개발 용어
+4. 프로젝트 기획 용어
+5. 개발서버 · 배포 · Git
+6. MCP · Worker · 자동화
+
+New beginner lecture UI should remain visually compatible with this reference unless a later Owner decision supersedes it.
