@@ -1,6 +1,6 @@
 {
   "name": "vibe-coding-basic-class-app",
-  "version": "3.0.0-beta.3",
+  "version": "4.0.0",
   "description": "AI·Agent·바이브코딩을 시각적으로 가르치는 JuCoding Electron 강의 스튜디오",
   "author": "ju0o",
   "repository": {
@@ -32,6 +32,7 @@
     "release:verify": "node scripts/verify-release-version.js",
     "release:build": "npm run build:v3 && npm run capture:v3-fallbacks && npm run build:slides && npm run audit:curriculum && npm run check && npm run smoke:tracks && npm run qa:print && npm run dist:portable",
     "dist": "electron-builder --win nsis portable",
+    "dist:installer": "electron-builder --win nsis",
     "dist:portable": "electron-builder --win portable",
     "release:current": "node scripts/prepare-release.js && npm run release:build && node scripts/finalize-release.js",
     "release:v3-beta": "npm run release:current"
