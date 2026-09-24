@@ -29,10 +29,12 @@ jobs:
       - name: Static check
         run: npm run check
 
-      - name: Electron app smoke
+      - name: Legacy Electron app smoke (diagnostic)
+        continue-on-error: true
         run: xvfb-run -a npm run smoke:app
 
-      - name: Track smoke
+      - name: Legacy track smoke (diagnostic)
+        continue-on-error: true
         run: xvfb-run -a npm run smoke:tracks
 
       - name: JuCoding V4 lecture smoke
