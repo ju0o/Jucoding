@@ -6,31 +6,31 @@
 
   const course = {
     id: 'v4-one-shot',
-    title: '개발 세계 한방 이해 · V4',
-    shortTitle: 'V4 ONE SHOT',
-    code: 'V4',
+    title: 'AI · Agent · 바이브코딩',
+    shortTitle: '3시간 스터디',
+    code: 'STUDY',
     family: '기초',
-    track: 'ONE SHOT · NON-DEVELOPER',
-    color: '#d8ff66',
+    track: 'BEGINNER · 3H',
+    color: '#7357ff',
     sessions: []
   };
 
   const item = {
     id: 'v4-one-shot-main',
-    title: '개발 세계 한방 이해',
-    subtitle: '비개발자를 위한 전체 지도',
-    description: 'AI/Agent부터 웹 구조, Git/GitHub, 배포, PRD/SSOT/WBS, Prototype, ERD/DBML까지 한 번에 연결합니다.',
-    duration: '90~110분',
+    title: 'AI · Agent · 바이브코딩 한 번에 이해하기',
+    subtitle: '비개발자를 위한 3시간 시각형 커리큘럼',
+    description: '왜 바이브코딩인지부터 AI/Agent, 프론트엔드·백엔드·API·DB, PRD/WBS/ERD/DBML/SSOT, 개발서버·배포, Git/GitHub, MCP와 자동화까지 하나의 흐름으로 연결합니다.',
+    duration: '약 3시간 · 쉬는 시간 포함',
     type: 'theory',
-    status: 'preview',
-    revision: 'v4-one-shot',
+    status: 'active',
+    revision: 'v4-lecture-studio',
     file: 'v4/one-shot.html'
   };
   course.sessions = [item];
 
   function openV4() {
     if (typeof window.openPlayer !== 'function') {
-      console.error('V4 launcher: openPlayer is unavailable.');
+      console.error('JuCoding V4 launcher: openPlayer is unavailable.');
       return;
     }
     window.openPlayer(course, item, false);
@@ -43,9 +43,9 @@
     const button = document.createElement('button');
     button.id = 'btn-v4-one-shot';
     button.type = 'button';
-    button.className = 'topbar-button compact';
-    button.innerHTML = '<span style="color:#d8ff66;font-weight:800">V4 ONE SHOT</span>';
-    button.title = '비개발자용 개발 세계 한방 이해 강의 열기';
+    button.className = 'topbar-button compact jv4-start-button';
+    button.innerHTML = '<span>3시간 스터디 시작</span>';
+    button.title = 'AI · Agent · 바이브코딩 3시간 커리큘럼 열기';
     button.addEventListener('click', openV4);
     host.prepend(button);
   }
@@ -58,12 +58,12 @@
     const button = document.createElement('button');
     button.id = 'v4-one-shot-rail';
     button.type = 'button';
-    button.className = 'course-button';
+    button.className = 'course-button jv4-course-entry';
     button.innerHTML = `
-      <span class="course-color" style="background:#d8ff66"></span>
+      <span class="course-color" style="background:#7357ff">J</span>
       <span class="course-copy">
-        <b>V4 ONE SHOT</b>
-        <small>개발 세계 한방 이해</small>
+        <b>AI · Agent · 바이브코딩</b>
+        <small>왕초보 3시간 스터디</small>
       </span>`;
     button.addEventListener('click', openV4);
     host.prepend(button);
