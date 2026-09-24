@@ -28,6 +28,7 @@
     "smoke:app": "electron scripts/smoke-electron-app.js",
     "smoke:tracks": "electron scripts/smoke-track-lessons.js",
     "smoke:v4": "electron scripts/smoke-v4-lecture.js",
+    "smoke:v4:shell": "electron scripts/smoke-v4-shell.js",
     "release:verify": "node scripts/verify-release-version.js",
     "release:build": "npm run build:v3 && npm run capture:v3-fallbacks && npm run build:slides && npm run audit:curriculum && npm run check && npm run smoke:tracks && npm run qa:print && npm run dist:portable",
     "dist": "electron-builder --win nsis portable",
