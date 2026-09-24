@@ -38,7 +38,19 @@ jobs:
         run: xvfb-run -a npm run smoke:tracks
 
       - name: JuCoding V4 lecture smoke
+        id: v4smoke
+        continue-on-error: true
         run: xvfb-run -a npm run smoke:v4
+
+      - name: Print V4 smoke report
+        if: always()
+        run: |
+          echo '--- V4 REPORT ---'
+          cat artifacts/qa/jucoding-v4-1366x768.json || true
+
+      - name: Enforce V4 smoke result
+        if: steps.v4smoke.outcome != 'success'
+        run: exit 1
 
       - name: Upload QA evidence
         if: always()
