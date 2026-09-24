@@ -1,1 +1,47 @@
-x
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090b0f">
+  <title>JuCoding V4 · Mobile Review</title>
+  <link rel="stylesheet" href="./review.css">
+</head>
+<body>
+  <header class="review-bar">
+    <div class="brand"><i></i><strong>JuCoding V4</strong><span>모바일 검토</span></div>
+    <div class="actions">
+      <button id="mode" type="button">데스크탑 그대로</button>
+      <button id="feedback" class="accent" type="button">피드백</button>
+    </div>
+  </header>
+
+  <main id="viewport" class="viewport fidelity">
+    <div id="frame-shell" class="frame-shell">
+      <iframe id="lesson" title="JuCoding V4 ONE SHOT" src="../src/content/v4/one-shot.html?review=1"></iframe>
+    </div>
+  </main>
+
+  <div class="review-hint">강의 안의 이전/다음 버튼으로 이동 · 피드백에는 현재 챕터와 장면 번호가 자동 첨부됩니다.</div>
+
+  <dialog id="feedback-dialog">
+    <form method="dialog" class="feedback-card">
+      <div class="dialog-head">
+        <div><small>SCENE FEEDBACK</small><h2 id="scene-title">현재 장면</h2></div>
+        <button value="cancel" class="close" aria-label="닫기">×</button>
+      </div>
+      <div id="scene-meta" class="scene-meta"></div>
+      <label for="feedback-text">어떤 점을 바꾸면 좋을까?</label>
+      <textarea id="feedback-text" rows="7" placeholder="예: 글자가 작음 / 목업을 더 실제처럼 / 이 설명은 뒤로 / 색 대비가 약함"></textarea>
+      <div class="feedback-actions">
+        <button id="copy-feedback" type="button">채팅용 복사</button>
+        <button id="issue-feedback" type="button" class="accent">GitHub로 보내기</button>
+      </div>
+      <p class="fine">GitHub로 보내기는 현재 장면 정보와 의견을 새 Issue에 미리 채웁니다. 로그인되어 있으면 모바일에서 바로 등록할 수 있습니다.</p>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="./review.js"></script>
+</body>
+</html>
