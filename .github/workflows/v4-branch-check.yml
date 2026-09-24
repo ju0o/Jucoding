@@ -34,3 +34,14 @@ jobs:
 
       - name: Track smoke
         run: xvfb-run -a npm run smoke:tracks
+
+      - name: JuCoding V4 lecture smoke
+        run: xvfb-run -a npm run smoke:v4
+
+      - name: Upload QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jucoding-v4-qa
+          path: artifacts/qa
+          if-no-files-found: ignore
