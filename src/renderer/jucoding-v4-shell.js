@@ -6,12 +6,16 @@
 
   const setText = (selector, value) => {
     const node = document.querySelector(selector);
-    if (node) node.textContent = value;
+    if (node && node.textContent !== value) node.textContent = value;
   };
 
   function applyBrand() {
-    document.documentElement.dataset.jucodingV4 = 'true';
-    document.title = 'JuCoding · AI & Vibe Coding Studio';
+    if (document.documentElement.dataset.jucodingV4 !== 'true') {
+      document.documentElement.dataset.jucodingV4 = 'true';
+    }
+    if (document.title !== 'JuCoding · AI & Vibe Coding Studio') {
+      document.title = 'JuCoding · AI & Vibe Coding Studio';
+    }
 
     setText('.brand-mark', 'J');
     setText('.brand strong', 'JuCoding');
@@ -19,9 +23,9 @@
     setText('.rail-search-copy', '강의, 키워드, 예제 찾기');
 
     const courseLabel = document.querySelector('[data-rail-section="courses"] .rail-toggle-copy span:last-child');
-    if (courseLabel) courseLabel.textContent = '강의';
+    if (courseLabel && courseLabel.textContent !== '강의') courseLabel.textContent = '강의';
     const workspaceLabel = document.querySelector('[data-rail-section="workspace"] .rail-toggle-copy span:last-child');
-    if (workspaceLabel) workspaceLabel.textContent = '도구';
+    if (workspaceLabel && workspaceLabel.textContent !== '도구') workspaceLabel.textContent = '도구';
 
     setText('#btn-planner b', '프로젝트 · 메모');
     setText('#planner-status', '아이디어와 수업 기록');
@@ -29,12 +33,12 @@
     setText('#settings-status', '빔 · 전체화면 · 배율');
 
     const footerVersion = document.querySelector('.rail-footer strong');
-    if (footerVersion) footerVersion.textContent = 'JUCODING V4';
+    if (footerVersion && footerVersion.textContent !== 'JUCODING V4') footerVersion.textContent = 'JUCODING V4';
     const footerStatus = document.querySelector('.rail-footer div span:last-child');
-    if (footerStatus) footerStatus.textContent = 'OFFLINE READY';
+    if (footerStatus && footerStatus.textContent !== 'OFFLINE READY') footerStatus.textContent = 'OFFLINE READY';
 
     const playerBack = document.querySelector('#btn-player-close span');
-    if (playerBack) playerBack.textContent = 'JuCoding';
+    if (playerBack && playerBack.textContent !== 'JuCoding') playerBack.textContent = 'JuCoding';
     setText('.notes-kicker', '강사 메모');
     setText('#drawer-kicker', 'JUCODING TOOLS');
   }
@@ -43,8 +47,12 @@
     const top = document.getElementById('btn-v4-one-shot');
     if (top) {
       top.classList.add('jv4-start-button');
-      top.innerHTML = '<span>3시간 스터디 시작</span>';
-      top.title = 'AI · Agent · 바이브코딩 3시간 커리큘럼 열기';
+      if (top.textContent.trim() !== '3시간 스터디 시작') {
+        top.innerHTML = '<span>3시간 스터디 시작</span>';
+      }
+      if (top.title !== 'AI · Agent · 바이브코딩 3시간 커리큘럼 열기') {
+        top.title = 'AI · Agent · 바이브코딩 3시간 커리큘럼 열기';
+      }
     }
 
     const rail = document.getElementById('v4-one-shot-rail');
@@ -52,8 +60,8 @@
       rail.classList.add('jv4-course-entry');
       const title = rail.querySelector('b');
       const subtitle = rail.querySelector('small');
-      if (title) title.textContent = 'AI · Agent · 바이브코딩';
-      if (subtitle) subtitle.textContent = '왕초보 3시간 스터디';
+      if (title && title.textContent !== 'AI · Agent · 바이브코딩') title.textContent = 'AI · Agent · 바이브코딩';
+      if (subtitle && subtitle.textContent !== '왕초보 3시간 스터디') subtitle.textContent = '왕초보 3시간 스터디';
     }
   }
 
@@ -64,10 +72,7 @@
 
   mount();
 
-  const observer = new MutationObserver(() => {
-    applyBrand();
-    enrichV4Button();
-  });
+  const observer = new MutationObserver(() => mount());
   observer.observe(document.body, { childList: true, subtree: true });
 
   setTimeout(mount, 250);
