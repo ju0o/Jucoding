@@ -1,0 +1,50 @@
+name: Deploy JuCoding Mobile Review
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'review/**'
+      - 'src/content/v4/**'
+      - '.github/workflows/mobile-review-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build static review site
+        run: |
+          mkdir -p _site/review _site/src/content/v4
+          cp -R review/. _site/review/
+          cp -R src/content/v4/. _site/src/content/v4/
+          cat > _site/index.html <<'HTML'
+          <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JuCoding V4 Review</title><meta http-equiv="refresh" content="0;url=./review/"><a href="./review/">JuCoding V4 모바일 검토 열기</a>
+          HTML
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
