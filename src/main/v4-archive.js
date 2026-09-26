@@ -461,6 +461,28 @@ async function applyProposal(proposalId, decisions) {
     return { ok: true, applied: 0, rejected: rejected.length, backupDir: '', message: '승인된 변경이 없어 강의가 그대로 유지됩니다.' };
   }
 
+  // A scene carries one archive figure, so two approved images aimed at the same
+  // scene would silently overwrite each other. With a large image set the
+  // filename guess collapses many files onto one scene, so this is the normal
+  // case, not an edge case. Refuse loudly instead of losing material.
+  const assetTargets = new Map();
+  for (const change of approved) {
+    if (change.action !== 'asset') continue;
+    if (!assetTargets.has(change.sceneId)) assetTargets.set(change.sceneId, []);
+    assetTargets.get(change.sceneId).push(change.after || change.sourceName || '이미지');
+  }
+  const collisions = [...assetTargets.entries()].filter(([, files]) => files.length > 1);
+  if (collisions.length) {
+    const detail = collisions
+      .map(([sceneId, files]) => `${sceneId}: ${files.join(', ')}`)
+      .join(' | ');
+    return {
+      ok: false,
+      message: `한 장면에는 이미지 1장만 붙일 수 있습니다. 같은 장면을 고른 이미지가 ${collisions.length}건 있습니다 — 장면을 나눠서 선택하거나 일부를 유지로 바꿔주세요. (${detail})`,
+      conflicts: collisions.map(([sceneId, files]) => ({ sceneId, files }))
+    };
+  }
+
   const backupDir = await backupBeforeApply(proposal.id);
   const overrides = await readOverrides();
 

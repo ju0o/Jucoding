@@ -552,6 +552,38 @@ app.whenReady().then(async () => {
     check(results, 'qa19_replaceIsNotCumulative',
       gitPatch.narration === 'replace 대상 문장입니다.', gitPatch.narration);
 
+    // ------- regression: two images cannot share one scene -------------------
+    // A scene carries a single archive figure, and with a large image set the
+    // filename guess collapses many files onto the same scene. Approving them
+    // all used to keep only the last one and lose the rest.
+    fs.writeFileSync(path.join(archiveRoot, 'inbox', 'dup-a.md'), 'x', 'utf-8');
+    for (const name of ['dup-img-a.png', 'dup-img-b.png']) {
+      fs.writeFileSync(path.join(archiveRoot, 'inbox', name), tinyPng(8));
+    }
+    const dupProposal = await archive.propose(['dup-img-a.png', 'dup-img-b.png']);
+    const dupAssets = dupProposal.ok
+      ? dupProposal.proposal.changes.filter((c) => c.action === 'asset')
+      : [];
+    let collision = { ok: true, message: 'no asset candidates' };
+    if (dupAssets.length >= 2) {
+      collision = await archive.applyProposal(dupProposal.proposal.id,
+        dupAssets.map((c) => ({ id: c.id, decision: 'apply', sceneId: 'cover' })));
+    }
+    check(results, 'qa21_twoImagesOneSceneIsRefused',
+      dupAssets.length >= 2
+      && collision.ok === false
+      && /장면/.test(collision.message || '')
+      && Array.isArray(collision.conflicts)
+      && collision.conflicts[0].files.length === 2,
+      { assets: dupAssets.length, ok: collision.ok, conflicts: collision.conflicts });
+    const afterCollision = await archive.readOverrides();
+    check(results, 'qa21_collisionWritesNothing',
+      !afterCollision.assets.cover || !String(afterCollision.assets.cover.archivePath || '').includes('dup-img'),
+      afterCollision.assets.cover);
+    for (const name of ['dup-img-a.png', 'dup-img-b.png', 'dup-a.md']) {
+      fs.rmSync(path.join(archiveRoot, 'inbox', name), { force: true });
+    }
+
     // ------- regression: prose material keeps its source attribution --------
     // A .md/.txt file goes through the organizer's statement-extraction path,
     // which is separate from the explicit-proposal and image paths. A change
