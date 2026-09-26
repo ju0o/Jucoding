@@ -57,9 +57,11 @@ button{color:inherit}
 .v4-asset-figure figcaption small{color:#8a93ad}
 .v4-asset-hero{justify-content:center}
 .scene.scene-figure-only{gap:10px}
-.scene.scene-figure-only .scene-title{font-size:clamp(26px,3.1vw,40px)}
+.scene.scene-figure-only .scene-header .kicker{padding:5px 9px;font-size:9px}
+.scene.scene-figure-only .scene-title{font-size:clamp(24px,2.7vw,34px)}
+.scene.scene-figure-only .scene-sub{margin-top:4px;font-size:clamp(13px,1.2vw,16px)}
 .v4-asset-large{flex-direction:column;gap:8px;padding:11px}
-.v4-asset-figure.v4-asset-large img{height:auto;width:auto;max-width:min(1180px,96%);max-height:min(40vh,340px);object-fit:contain;border-radius:14px}
+.v4-asset-figure.v4-asset-large img{height:auto;width:auto;max-width:min(1180px,96%);max-height:min(44vh,360px);object-fit:contain;border-radius:14px}
 .v4-asset-figure.v4-asset-large figcaption{text-align:center;max-width:100%;font-size:11px;line-height:1.45}
 .v4-asset-figure.v4-asset-large figcaption b{font-size:12.5px;margin-bottom:2px}
 .v4-asset-figure.v4-asset-large .archive-asset-loading{width:min(900px,80%);height:min(50vh,420px);font-size:13px}
@@ -72,7 +74,10 @@ button{color:inherit}
 .risk-card ul{margin:0;padding-left:19px;color:#5b6584;font-size:12.5px;line-height:1.6}
 .asset-dialog-body{padding:20px 22px;display:grid;gap:12px;justify-items:center}
 .asset-dialog-body img{max-width:min(960px,84vw);max-height:64vh;object-fit:contain;border-radius:16px;border:1px solid var(--line);background:#f4f6ff}
-.asset-dialog-body.is-full img{max-width:min(1320px,95vw);max-height:90vh;cursor:zoom-out}
+.asset-dialog-body.is-full{padding:12px 16px}
+.asset-dialog-body.is-full img{max-width:min(1320px,95vw);max-height:calc(86vh - 150px);cursor:zoom-out}
+/* The dialog head already shows the title, so a full slide drops the caption. */
+.asset-dialog-body.is-full .asset-dialog-cap{display:none}
 .asset-dialog-cap{margin:0;color:#5b6584;font-size:13px;line-height:1.6;text-align:center;max-width:70ch}
 .deck-footer{display:grid;grid-template-columns:120px 1fr 120px;gap:18px;align-items:center;padding:0 22px;background:rgba(255,255,255,.94);border-top:1px solid var(--line)}.progress-area{max-width:760px;width:100%;justify-self:center}.meta{display:flex;justify-content:space-between;color:#76809a;font-size:10px;font-weight:700;margin-bottom:7px}.progress{height:5px;background:#edf0f8;border-radius:99px;overflow:hidden}.progress i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--purple),var(--pink));transition:width .2s}
 .archive-asset-loading{display:grid;place-items:center;width:min(300px,30vw);height:104px;border-radius:12px;border:1px solid var(--line);background:#f4f6ff;color:#8a93ad;font-size:11px}

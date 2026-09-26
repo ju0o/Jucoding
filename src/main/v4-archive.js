@@ -601,6 +601,13 @@ async function applyProposal(proposalId, decisions) {
         cue: change.cue || change.after,
         extra: change.extra || `자료함에서 추가된 장면 · ${change.sourceName || ''}`.trim(),
         origin: 'archive',
+        // The scene's own presentation labels, so an appendix slide is not
+        // headed with a generic "ARCHIVE MATERIAL".
+        ...(change.kicker ? { kicker: change.kicker } : {}),
+        ...(change.sub ? { sub: change.sub } : {}),
+        ...(change.narration ? { narration: change.narration } : {}),
+        // An explicit [] means "no body text": a full-slide scene should not be
+        // pushed down by a repeated summary.
         ...(Array.isArray(change.blocks) ? { blocks: change.blocks } : {})
       };
       overrides.newScenes = overrides.newScenes.filter((s) => s.id !== scene.id);

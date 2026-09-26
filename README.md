@@ -105,7 +105,7 @@ npm start
 ```bash
 npm run check          # 31 checks — content, simulations, archive, packaging
 npm run smoke:v4       # 29 checks — deck, simulation matrix, layout, offline
-npm run smoke:v4:shell # 51 checks — archive approval flow
+npm run smoke:v4:shell # 57 checks — archive approval flow
 ```
 
 | 명령 | 검사 대상 |

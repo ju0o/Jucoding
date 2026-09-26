@@ -115,6 +115,39 @@ because the renderer is sandboxed and cannot read the user's Documents folder.
 No custom protocol is registered, so the renderer gets no filesystem access and
 the deck's CSP is unchanged.
 
+### Adding a slide deck as a new chapter
+
+A whole deck can be placed at once by authoring a Lecture Update Proposal and
+dropping it in the inbox next to the images:
+
+```jsonc
+{
+  "consumes": ["01_첫번째.png", "02_두번째.png"],
+  "changes": [
+    { "sceneId": "appendix-x-01", "action": "new_scene", "title": "…",
+      "chapter": "appendix-x", "chapterId": "appendix-x",
+      "chapterLabel": "부록", "chapterTitle": "슬라이드 덱", "blocks": [] },
+    { "sceneId": "appendix-x-01", "action": "asset", "sourceName": "01_첫번째.png",
+      "assetPath": "inbox/01_첫번째.png", "after": "…", "size": "large" }
+  ]
+}
+```
+
+- `consumes` names the extra files the proposal places. They are **not** run
+  through the similarity guess — the proposal already decides where each goes —
+  but they stay in `sourceFiles` so they are filed to `applied/` and their paths
+  rewritten.
+- `new_scene` may introduce a whole chapter via `chapterId`/`chapterTitle`, which
+  joins the 목차 grid and the footer label. An unknown `chapter` id falls back to
+  a real one rather than storing an id the renderer cannot resolve.
+- `size: "large"` renders a full slide instead of the 104px caption thumbnail,
+  and opens in a dialog sized to the viewport. A 1254×1254 slide still cannot
+  show its fine print at lecture size, so the intended use is click-to-enlarge
+  or the instructor narrating it.
+
+The shipped curriculum is untouched: an appendix is added after it, so the
+original 21 scenes keep their order and numbering.
+
 Flow, enforced in this order:
 
 ```
@@ -187,7 +220,7 @@ The V4 home is unchanged, including its seven sections.
 ```bash
 npm run check          # 32 checks: content, simulations, archive, packaging
 npm run smoke:v4       # 29 checks: deck, simulations, layout, offline
-npm run smoke:v4:shell # 51 checks (50 assert + 1 needs a visible window): archive approval flow and images
+npm run smoke:v4:shell # 57 checks (56 assert + 1 needs a visible window): archive approval flow, images, slide-deck chapters
 ```
 
 All three pass. Both smoke suites run on a **hidden window by default** and never

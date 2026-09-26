@@ -177,13 +177,27 @@ app.whenReady().then(async () => {
     // ------------------------------------------------------------- assets ---
     const assets = [];
     for (const asset of ASSETS) {
+      // Decoding is asynchronous, and on a window that is not on screen the
+      // renderer may not have started the decode yet. Poll instead of reading
+      // naturalWidth once, which made this check intermittently fail.
       const probe = await run('asset', `
-        (() => {
+        (async () => {
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
           const api = window.__jucodingV4;
           const target = api.scenes.findIndex((s) => s.id === ${JSON.stringify(asset.scene)});
           api.gotoScene(target);
-          const img = document.querySelector('#stage img[data-asset-full*="${asset.file}"]');
-          return { found: Boolean(img), natural: img ? img.naturalWidth : 0, src: img ? img.getAttribute('src') : '' };
+          let img = null;
+          for (let i = 0; i < 40; i += 1) {
+            img = document.querySelector('#stage img[data-asset-full*="${asset.file}"]');
+            if (img && img.complete && img.naturalWidth > 0) break;
+            await sleep(100);
+          }
+          return {
+            found: Boolean(img),
+            complete: img ? img.complete : false,
+            natural: img ? img.naturalWidth : 0,
+            src: img ? img.getAttribute('src') : ''
+          };
         })()
       `);
       assets.push({ ...asset, ...probe, ok: probe.found && probe.natural > 0 });
