@@ -213,4 +213,291 @@
   });
 
   loadMemo();
+
+  // ===========================================================================
+  // JuCoding Archive — material inbox and the lecture update approval flow
+  //
+  // Flow, in this order and never any other:
+  //   자료 투입 → 새 자료 확인 → 변경안 만들기 → Preview → 사람 승인 → 적용
+  //
+  // Nothing here writes lecture content. The only mutating call is
+  // applyProposal(), and the main process backs up first.
+  // ===========================================================================
+
+  const archiveEls = {
+    path: document.getElementById('archive-path'),
+    count: document.getElementById('archive-count'),
+    files: document.getElementById('archive-files'),
+    proposeRow: document.getElementById('archive-propose-row'),
+    proposeNote: document.getElementById('archive-propose-note'),
+    ai: document.getElementById('archive-ai'),
+    applied: document.getElementById('archive-applied')
+  };
+  const proposalDialog = document.getElementById('proposal-dialog');
+  const proposalEls = {
+    title: document.getElementById('proposal-title'),
+    meta: document.getElementById('proposal-meta'),
+    changes: document.getElementById('proposal-changes'),
+    summary: document.getElementById('proposal-summary'),
+    status: document.getElementById('proposal-status')
+  };
+  const proposalListDialog = document.getElementById('proposal-list-dialog');
+  const proposalList = document.getElementById('proposal-list');
+
+  const ACTION_LABEL = {
+    replace: '한 줄 요약 교체',
+    append: '강사 메모에 추가',
+    asset: '장면 자료로 추가',
+    new_scene: '새 장면 추가'
+  };
+  const CONFIDENCE_LABEL = { high: '높음', medium: '보통', low: '낮음' };
+
+  let archiveStatus = null;
+  let currentProposal = null;
+
+  const esc = (value) => String(value == null ? '' : value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+  const hasArchive = () => Boolean(bridge && typeof bridge.archiveStatus === 'function');
+  const fmtSize = (bytes) => {
+    if (!bytes && bytes !== 0) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  };
+
+  function renderArchiveFiles(files) {
+    if (!files || !files.length) {
+      archiveEls.files.innerHTML = '<p class="meta-line">inbox에 지원 형식(.md .txt .json .png .jpg .jpeg .webp) 자료를 넣어주세요.</p>';
+      return;
+    }
+    archiveEls.files.innerHTML = `<p class="archive-files-title">새 자료 ${files.filter((f) => f.supported).length}개</p>`
+      + files.map((file) => `
+        <div class="archive-file${file.supported ? '' : ' is-ignored'}">
+          <span class="archive-file-icon">${file.kind === 'image' ? '🖼️' : file.kind === 'text' ? '📄' : '⛔'}</span>
+          <span class="archive-file-name">${esc(file.name)}</span>
+          <span class="archive-file-meta">${esc(fmtSize(file.size))}</span>
+          <span class="archive-file-state">${file.supported ? '사용 가능' : esc(file.reason || '지원하지 않는 형식')}</span>
+        </div>`).join('');
+  }
+
+  async function refreshArchiveStatus() {
+    if (!hasArchive()) {
+      archiveEls.path.textContent = '앱에서 실행하면 Documents/JuCoding/Archive 가 자동 생성됩니다';
+      archiveEls.count.textContent = '앱 전용 기능';
+      archiveEls.ai.textContent = '';
+      renderArchiveFiles([]);
+      return;
+    }
+    try {
+      const status = await bridge.archiveStatus();
+      if (!status || !status.root) {
+        archiveEls.count.textContent = '자료함 초기화 실패';
+        return;
+      }
+      archiveStatus = status;
+      archiveEls.path.textContent = status.root;
+      archiveEls.count.textContent = status.newCount > 0
+        ? `새 자료 ${status.newCount}개${status.ignoredCount ? ` · 무시 ${status.ignoredCount}개` : ''}`
+        : '새 자료 없음';
+      archiveEls.ai.textContent = status.providerStatus
+        ? `${status.providerStatus.aiMessage} 현재 변경안 생성기: ${status.providerStatus.activeProviderLabel || '없음'}. ${status.providerStatus.aiHint}`
+        : '';
+      archiveEls.applied.textContent = [
+        `자료함 위치: ${status.root}`,
+        `반영된 장면 ${status.appliedSceneCount}개 · 자료 ${status.appliedAssetCount}개 · 추가 장면 ${status.newSceneCount}개`,
+        status.lastAppliedAt ? `마지막 적용: ${new Date(status.lastAppliedAt).toLocaleString('ko-KR')}` : '아직 적용된 변경이 없습니다'
+      ].join(' · ');
+      renderArchiveFiles(status.files);
+      archiveEls.proposeRow.hidden = status.newCount === 0;
+      archiveEls.proposeNote.textContent = status.newCount > 0
+        ? `${status.newCount}개 자료로 변경안 초안을 만듭니다. 바로 강의에 반영되지 않습니다.`
+        : '';
+    } catch (error) {
+      archiveEls.count.textContent = '자료함을 읽지 못했습니다';
+    }
+  }
+
+  async function scanArchive() {
+    if (!hasArchive()) {
+      archiveEls.count.textContent = '앱에서 실행하면 사용할 수 있습니다';
+      return;
+    }
+    archiveEls.count.textContent = 'inbox 확인 중…';
+    const result = await bridge.scanArchive();
+    if (!result || !result.ok) {
+      archiveEls.count.textContent = (result && result.message) || 'inbox를 읽지 못했습니다';
+      return;
+    }
+    archiveStatus = { ...(archiveStatus || {}), newCount: result.newCount, ignoredCount: result.ignoredCount, files: result.files };
+    archiveEls.count.textContent = result.newCount > 0
+      ? `새 자료 ${result.newCount}개${result.ignoredCount ? ` · 무시 ${result.ignoredCount}개` : ''}`
+      : '새 자료 없음';
+    renderArchiveFiles(result.files);
+    archiveEls.proposeRow.hidden = result.newCount === 0;
+  }
+
+  async function openArchiveFolder(which) {
+    if (!hasArchive()) {
+      archiveEls.count.textContent = '앱에서 실행하면 Windows 탐색기에서 열립니다';
+      return;
+    }
+    const result = await bridge.openArchiveFolder(which || 'inbox');
+    if (!result || !result.ok) archiveEls.count.textContent = (result && result.message) || '폴더를 열지 못했습니다';
+  }
+
+  function renderProposal(proposal) {
+    currentProposal = proposal;
+    proposalEls.title.textContent = proposal.sourceFiles.map((f) => f.name).join(' · ') || '강의 변경안';
+    proposalEls.meta.innerHTML = `
+      <span class="chip">작성 ${new Date(proposal.createdAt).toLocaleString('ko-KR')}</span>
+      <span class="chip">생성기 ${esc(proposal.provider ? proposal.provider.label : '-')}</span>
+      <span class="chip">변경 후보 ${proposal.changes.length}건</span>
+      <span class="chip">원자료 ${proposal.sourceFiles.length}개</span>`;
+    proposalEls.changes.innerHTML = proposal.changes.length
+      ? proposal.changes.map((change) => `
+        <article class="change-card" data-change="${esc(change.id)}" data-decision="keep">
+          <div class="change-head">
+            <span class="change-scene">${esc(change.chapterLabel ? `${change.chapterLabel} · ` : '')}${esc(change.sceneTitle || change.sceneId)}</span>
+            <span class="change-tag change-${esc(change.action)}">${esc(ACTION_LABEL[change.action] || change.action)}</span>
+            <span class="change-conf conf-${esc(change.confidence)}">일치도 ${esc(CONFIDENCE_LABEL[change.confidence] || change.confidence)}</span>
+            <span class="change-source">${esc(change.sourceName || '')}</span>
+          </div>
+          <p class="change-reason">${esc(change.reason)}</p>
+          <div class="change-diff">
+            <div class="change-before"><b>현재</b><p>${esc(change.before) || '<em>없음</em>'}</p></div>
+            <div class="change-after">
+              <b>제안 <span class="change-edit-hint">직접 수정할 수 있습니다</span></b>
+              <textarea data-after rows="3">${esc(change.after)}</textarea>
+            </div>
+          </div>
+          <div class="change-actions">
+            <button type="button" class="ghost small" data-decide="keep">기존 유지</button>
+            <button type="button" class="cta small" data-decide="apply">이 변경 적용</button>
+          </div>
+        </article>`).join('')
+      : '<p class="meta-line">이 자료로부터 만든 변경 후보가 없습니다. 다른 자료를 넣어보세요.</p>';
+    updateProposalSummary();
+    proposalEls.status.textContent = '기본값은 "기존 유지"입니다. 반영할 변경만 눌러 표시한 뒤 적용하세요.';
+  }
+
+  function updateProposalSummary() {
+    const apply = proposalEls.changes.querySelectorAll('.change-card[data-decision="apply"]').length;
+    const keep = proposalEls.changes.querySelectorAll('.change-card[data-decision="keep"]').length;
+    proposalEls.summary.textContent = `적용 ${apply}건 · 유지 ${keep}건`;
+    document.getElementById('btn-proposal-apply').disabled = apply === 0;
+  }
+
+  function setAllDecisions(decision) {
+    proposalEls.changes.querySelectorAll('.change-card').forEach((card) => {
+      card.dataset.decision = decision;
+    });
+    updateProposalSummary();
+  }
+
+  async function makeProposal() {
+    if (!hasArchive()) {
+      archiveEls.count.textContent = '앱에서 실행하면 사용할 수 있습니다';
+      return;
+    }
+    proposalEls.status.textContent = '변경안을 만드는 중…';
+    const result = await bridge.proposeFromArchive(null);
+    if (!result || !result.ok) {
+      proposalEls.status.textContent = (result && result.message) || '변경안을 만들지 못했습니다';
+      if (!proposalDialog.open) proposalDialog.showModal();
+      return;
+    }
+    renderProposal(result.proposal);
+    if (!proposalDialog.open) proposalDialog.showModal();
+    refreshArchiveStatus();
+  }
+
+  async function openProposal(id) {
+    const result = await bridge.getProposal(id);
+    if (!result || !result.ok) return;
+    proposalListDialog?.close();
+    renderProposal(result.proposal);
+    if (!proposalDialog.open) proposalDialog.showModal();
+  }
+
+  async function showProposalList() {
+    if (!hasArchive()) return;
+    const result = await bridge.listProposals();
+    if (!result || !result.ok) {
+      proposalList.innerHTML = `<p class="meta-line">${esc((result && result.message) || '변경안을 읽지 못했습니다')}</p>`;
+    } else if (!result.proposals.length) {
+      proposalList.innerHTML = '<p class="meta-line">저장된 변경안이 없습니다. 자료실에서 "변경안 만들기"를 눌러 주세요.</p>';
+    } else {
+      proposalList.innerHTML = result.proposals.map((p) => `
+        <button type="button" class="proposal-row" data-proposal="${esc(p.id)}">
+          <span class="proposal-row-main">
+            <b>${esc(p.sourceFiles.join(' · ') || '변경안')}</b>
+            <small>${esc(new Date(p.createdAt).toLocaleString('ko-KR'))} · ${esc(p.providerLabel)}</small>
+          </span>
+          <span class="proposal-row-state state-${esc(p.status)}">${p.status === 'applied' ? '적용 완료' : `검토 대기 · ${p.changeCount}건`}</span>
+        </button>`).join('');
+    }
+    if (!proposalListDialog.open) proposalListDialog.showModal();
+  }
+
+  async function applyCurrentProposal() {
+    if (!currentProposal) return;
+    const decisions = [...proposalEls.changes.querySelectorAll('.change-card')].map((card) => {
+      const id = card.dataset.change;
+      const source = currentProposal.changes.find((c) => c.id === id) || {};
+      return {
+        id,
+        decision: card.dataset.decision,
+        // The applied value is whatever the instructor left in the box.
+        after: card.querySelector('[data-after]') ? card.querySelector('[data-after]').value : source.after
+      };
+    });
+    document.getElementById('btn-proposal-apply').disabled = true;
+    proposalEls.status.textContent = '적용 중… (백업 생성 → 강의 반영 → 자료 이동)';
+    const result = await bridge.applyProposal(currentProposal.id, decisions);
+    document.getElementById('btn-proposal-apply').disabled = false;
+    if (!result || !result.ok) {
+      proposalEls.status.textContent = (result && result.message) || '적용하지 못했습니다';
+      return;
+    }
+    proposalEls.status.textContent = result.message
+      + (result.backupDir ? ` · 백업: ${result.backupDir}` : '')
+      + (result.scenes && result.scenes.length ? ` · 반영 장면: ${result.scenes.join(', ')}` : '')
+      + ' · 강의 다시 열면 반영된 내용이 보입니다.';
+    await refreshArchiveStatus();
+  }
+
+  // Wiring
+  document.getElementById('btn-open-archive')?.addEventListener('click', () => openArchiveFolder('inbox'));
+  document.getElementById('btn-scan-archive')?.addEventListener('click', scanArchive);
+  document.getElementById('btn-review-proposals')?.addEventListener('click', showProposalList);
+  document.getElementById('btn-make-proposal')?.addEventListener('click', makeProposal);
+  document.getElementById('btn-instructor-archive')?.addEventListener('click', () => { gotoSection('library'); openArchiveFolder('inbox'); });
+  document.getElementById('btn-instructor-review')?.addEventListener('click', showProposalList);
+  document.getElementById('btn-open-backup')?.addEventListener('click', () => openArchiveFolder('backup'));
+  document.getElementById('btn-new-proposal')?.addEventListener('click', () => {
+    proposalListDialog?.close();
+    makeProposal();
+  });
+  document.getElementById('btn-proposal-all')?.addEventListener('click', () => setAllDecisions('apply'));
+  document.getElementById('btn-proposal-none')?.addEventListener('click', () => setAllDecisions('keep'));
+  document.getElementById('btn-proposal-apply')?.addEventListener('click', applyCurrentProposal);
+
+  proposalEls.changes.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-decide]');
+    if (!button) return;
+    const card = button.closest('.change-card');
+    if (card) {
+      card.dataset.decision = button.dataset.decide;
+      updateProposalSummary();
+    }
+  });
+
+  proposalList.addEventListener('click', (event) => {
+    const row = event.target.closest('[data-proposal]');
+    if (row) openProposal(row.dataset.proposal);
+  });
+
+  refreshArchiveStatus();
 })();

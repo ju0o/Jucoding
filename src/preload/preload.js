@@ -34,6 +34,41 @@ contextBridge.exposeInMainWorld('vibeCodingApp', {
   importData: () => ipcRenderer.invoke('import-user-data'),
   openContentPath: (relativePath) => ipcRenderer.invoke('open-content-path', relativePath),
 
+  // -------------------------------------------------------------------------
+  // JuCoding Archive (외부 자료함) — V4.1
+  //
+  // Reading material never changes the lecture. The only mutating call is
+  // applyProposal(), which the main process backs up first.
+  // -------------------------------------------------------------------------
+
+  // Folder tree state, plus the AI provider status ("AI 정리는 연결되지 않았습니다."
+  // when no AI provider is configured — the Archive still works without one).
+  archiveStatus: () => ipcRenderer.invoke('archive-status'),
+
+  // Reveals Archive/<which> in the OS file manager (defaults to inbox).
+  openArchiveFolder: (which) => ipcRenderer.invoke('archive-open-folder', which || 'inbox'),
+
+  // Lists new material in Archive/inbox without changing anything.
+  scanArchive: () => ipcRenderer.invoke('archive-scan'),
+
+  // Analyses material into a Lecture Update Proposal draft.
+  proposeFromArchive: (fileNames) => ipcRenderer.invoke('archive-propose', fileNames || null),
+
+  listProposals: () => ipcRenderer.invoke('archive-proposals'),
+  getProposal: (id) => ipcRenderer.invoke('archive-proposal', id),
+
+  // Applies the approved subset. decisions: [{ id, decision: 'apply'|'keep', after }]
+  applyProposal: (id, decisions) => ipcRenderer.invoke('archive-apply', id, decisions || []),
+
+  // Approved lecture overrides, merged over the shipped content at render time.
+  getLectureOverrides: () => ipcRenderer.invoke('archive-overrides'),
+  getOrganizerStatus: () => ipcRenderer.invoke('organizer-status'),
+
+  // URL for an image that lives in the user's Archive folder. The custom
+  // scheme only resolves paths inside the Archive root.
+  archiveUrl: (relativePath) => 'jucoding-archive://material/'
+    + String(relativePath || '').split('/').filter(Boolean).map(encodeURIComponent).join('/'),
+
   // 개발/패키징 여부
   isDev: () => ipcRenderer.invoke('is-dev'),
 

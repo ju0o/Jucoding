@@ -224,6 +224,12 @@ async function currentScenes() {
   return scenes;
 }
 
+async function chapterList() {
+  const curriculumFile = path.join(__dirname, '..', 'content', 'v4', 'curriculum.json');
+  const curriculum = JSON.parse(await fsp.readFile(curriculumFile, 'utf-8'));
+  return Array.isArray(curriculum.chapters) ? curriculum.chapters : [];
+}
+
 async function propose(fileNames) {
   await ensureArchive();
   const wanted = Array.isArray(fileNames) && fileNames.length ? fileNames : null;
@@ -249,9 +255,11 @@ async function propose(fileNames) {
   const scenes = await currentScenes();
   const provider = organizer.activeProvider();
   if (!provider) {
-    return { ok: false, message: '변경안을 만들 수 없습니다.LectureOrganizerProvider를 등록해 주세요.' };
+    return { ok: false, message: '변경안을 만들 수 없습니다. LectureOrganizerProvider를 등록해 주세요.' };
   }
 
+  const chapterById = new Map(chapterList().map((c) => [c.id, c]));
+  const sceneById = new Map(scenes.map((s) => [s.id, s]));
   const changes = await provider.propose({ materials, scenes });
   const proposal = {
     id: `p-${Date.now().toString(36)}`,
@@ -259,17 +267,25 @@ async function propose(fileNames) {
     provider: { id: provider.id, label: provider.label, kind: provider.kind },
     sourceFiles: materials.map((m) => ({ name: m.name, ext: m.ext, kind: m.kind, archivePath: m.archivePath })),
     skipped,
-    changes: changes.map((c) => ({
-      id: c.id,
-      sceneId: c.sceneId,
-      action: c.action,
-      field: c.field || (c.action === 'append' ? 'extra' : 'narration'),
-      before: c.before || '',
-      after: c.after || '',
-      reason: c.reason || '',
-      confidence: c.confidence || 'low',
-      ...(c.assetPath ? { assetPath: c.assetPath } : {})
-    }))
+    changes: changes.map((c) => {
+      const scene = sceneById.get(c.sceneId);
+      const chapter = chapterById.get(scene ? scene.chapter : '');
+      return {
+        id: c.id,
+        sceneId: c.sceneId,
+        // Resolved here so the review UI does not have to know the curriculum.
+        sceneTitle: scene ? scene.title : c.sceneId,
+        chapterLabel: chapter ? `${chapter.label} · ${chapter.title}` : '',
+        action: c.action,
+        field: c.field || (c.action === 'append' ? 'extra' : 'narration'),
+        before: c.before || '',
+        after: c.after || '',
+        reason: c.reason || '',
+        confidence: c.confidence || 'low',
+        sourceName: c.sourceName || '',
+        ...(c.assetPath ? { assetPath: c.assetPath } : {})
+      };
+    })
   };
 
   await fsp.mkdir(proposalsDir(), { recursive: true });

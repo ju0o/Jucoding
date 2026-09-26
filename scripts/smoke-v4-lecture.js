@@ -1,18 +1,52 @@
 'use strict';
 
-const { app, BrowserWindow } = require('electron');
+// JuCoding V4 lecture smoke.
+//
+// Covers the deck contract (21 scenes, 6 chapters, both practice forms, the
+// three dialogs), the six lecture visuals, layout at 1366x768 and 1920x1080,
+// zero console errors, offline operation, and the full simulation control
+// matrix: start / pause / resume / next / reset / speed / keyboard /
+// prefers-reduced-motion.
+//
+// The window is shown on purpose: capturePage() on a hidden window can return a
+// stale frame, and fullscreen needs a real window.
+
+const { app, BrowserWindow, session } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
 const qaDir = path.join(root, 'artifacts', 'qa');
-const screenshotPath = path.join(qaDir, 'jucoding-v4-1366x768.png');
-const reportPath = path.join(qaDir, 'jucoding-v4-1366x768.json');
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const ASSETS = [
+  { file: 'ai-agent-vibecoding.webp', scene: 'cover' },
+  { file: 'chat-ai-vs-computer-agent.webp', scene: 'chat-terminal' },
+  { file: 'beginner-dev-terms.webp', scene: 'web-terms' },
+  { file: 'project-planning-terms.webp', scene: 'planning-terms-a' },
+  { file: 'automation-deploy-mcp.webp', scene: 'mcp' },
+  { file: 'safety-boundary.webp', scene: 'safety' }
+];
+
+// Simulation ids, with the scene index they are attached to.
+const SIMULATIONS = [
+  { id: 'chat-agent', scene: 3 },
+  { id: 'ai-agent', scene: 3 },
+  { id: 'chatgpt-vs-computer-agent', scene: 4 },
+  { id: 'frontend-api-backend', scene: 6 },
+  { id: 'mcp-worker', scene: 16 },
+  { id: 'sns-automation', scene: 17 },
+  { id: 'safety-boundary', scene: 19 }
+];
+
+function check(results, name, ok, detail) {
+  results[name] = { ok: Boolean(ok), ...(detail ? { detail } : {}) };
+  return Boolean(ok);
+}
 
 app.whenReady().then(async () => {
   const win = new BrowserWindow({
-    show: false,
+    show: true,
     width: 1366,
     height: 768,
     backgroundColor: '#eef2ff',
@@ -29,11 +63,40 @@ app.whenReady().then(async () => {
     if (level >= 2 || /uncaught|failed|error/i.test(message)) errors.push(message);
   });
 
+  // Offline: record and block anything that is not a local file:// load.
+  const remoteRequests = [];
+  session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
+    if (!/^(file|devtools|blob|data|jucoding-archive):/i.test(details.url)) {
+      remoteRequests.push(details.url);
+      callback({ cancel: true });
+      return;
+    }
+    callback({ cancel: false });
+  });
+
+  const results = {};
+  fs.mkdirSync(qaDir, { recursive: true });
+
+  // Labels every evaluateJavaScript call so a throw points at the failing step.
+  let step = 'startup';
+  const evaluate = async (code) => {
+    try {
+      return await win.webContents.executeJavaScript(code, true);
+    } catch (error) {
+      throw new Error(`[${step}] ${error.message}`);
+    }
+  };
+  const run = async (label, code) => {
+    step = label;
+    return evaluate(code);
+  };
+
   try {
     await win.loadFile(path.join(root, 'src/content/v4/one-shot.html'));
-    await wait(450);
+    await wait(600);
 
-    const initial = await win.webContents.executeJavaScript(`
+    // ---------------------------------------------------------------- deck ---
+    const initial = await run('deck', `
       (() => ({
         title: document.title,
         brand: document.querySelector('.brand strong')?.textContent || '',
@@ -49,11 +112,327 @@ app.whenReady().then(async () => {
         overflowY: document.documentElement.scrollHeight > document.documentElement.clientHeight + 1
       }))()
     `);
+    const sceneCount = Number((initial.counter.match(/\/\s*(\d+)/) || [])[1] || 0);
 
-    fs.mkdirSync(qaDir, { recursive: true });
-    fs.writeFileSync(screenshotPath, (await win.webContents.capturePage()).toPNG());
+    check(results, 'qa22_sceneCount', sceneCount === 21, `${sceneCount} scenes`);
+    check(results, 'qa22_deckShell', initial.deck && initial.stage && initial.hasNext && initial.hasPrev);
+    check(results, 'qa22_chapterGrid', initial.chapterButtons === 6);
+    check(results, 'qa24_noOverflow1366', !initial.overflowX && !initial.overflowY);
 
-    const projectForm = await win.webContents.executeJavaScript(`
+    // Every scene renders without throwing and stays inside the stage.
+    const allScenes = await run('allScenes', `
+      (() => {
+        const api = window.__jucodingV4;
+        const bad = [];
+        const height = document.querySelector('.stage-wrap').getBoundingClientRect();
+        for (let i = 0; i < api.sceneCount; i += 1) {
+          api.gotoScene(i);
+          const scene = document.querySelector('#stage .scene');
+          if (!scene) { bad.push({ i, why: 'no scene' }); continue; }
+          if (document.documentElement.scrollWidth > document.documentElement.clientWidth + 1) bad.push({ i, why: 'overflowX' });
+          if (document.documentElement.scrollHeight > document.documentElement.clientHeight + 1) bad.push({ i, why: 'overflowY' });
+        }
+        api.gotoScene(0);
+        return { count: api.sceneCount, bad, titles: api.scenes.map((s) => s.id) };
+      })()
+    `);
+    check(results, 'qa22_allScenesRender', allScenes.bad.length === 0, allScenes.bad);
+
+    fs.writeFileSync(path.join(qaDir, 'jucoding-v4-1366x768.png'), (await win.webContents.capturePage()).toPNG());
+
+    // ------------------------------------------------------------- assets ---
+    const assets = [];
+    for (const asset of ASSETS) {
+      const probe = await run('asset', `
+        (() => {
+          const api = window.__jucodingV4;
+          const target = api.scenes.findIndex((s) => s.id === ${JSON.stringify(asset.scene)});
+          api.gotoScene(target);
+          const img = document.querySelector('#stage img[data-asset-full*="${asset.file}"]');
+          return { found: Boolean(img), natural: img ? img.naturalWidth : 0, src: img ? img.getAttribute('src') : '' };
+        })()
+      `);
+      assets.push({ ...asset, ...probe, ok: probe.found && probe.natural > 0 });
+    }
+    check(results, 'qa23_sixWebp', assets.every((a) => a.ok), assets);
+
+    // --------------------------------------------------------- simulations ---
+    const transports = await run('transports', `
+      (() => {
+        const api = window.__jucodingV4;
+        api.gotoScene(3);
+        document.querySelector('[data-sim="ai-agent"]').click();
+        const host = document.querySelector('.sim-host');
+        const roles = [...host.querySelectorAll('[data-role]')].map((b) => b.dataset.role);
+        const speeds = [...host.querySelectorAll('[data-speed]')].map((b) => b.dataset.speed);
+        api.closeSimulation();
+        return { roles, speeds };
+      })()
+    `);
+    for (const role of ['start', 'pause', 'resume', 'next', 'reset']) {
+      check(results, `transport_${role}`, transports.roles.includes(role));
+    }
+    check(results, 'transport_speeds',
+      transports.speeds.join(',') === '0.75,1,1.5',
+      transports.speeds.join(','));
+
+    // 5) start  6) pause  7) resume  8) next  9) reset  10) speed
+    const controls = await run('controls', `
+      (async () => {
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        const api = window.__jucodingV4;
+        const state = () => api.simulationState;
+        const role = (r) => document.querySelector('[data-role="' + r + '"]');
+        const key = (k) => document.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+
+        api.gotoScene(3);
+        document.querySelector('[data-sim="ai-agent"]').click();
+        await sleep(120);
+        const out = { opened: api.simulationOpen, total: state().total };
+
+        out.beforeStart = state().state;
+        role('start').click();
+        await sleep(160);
+        out.afterStart = state().state;
+        out.startedStep = state().stepIndex;
+        out.disabled = {
+          pause: role('pause').disabled,
+          resume: role('resume').disabled,
+          next: role('next').disabled
+        };
+
+        await sleep(1500);
+        out.autoAdvanced = state().stepIndex > out.startedStep;
+        out.runningStep = state().stepIndex;
+
+        role('pause').click();
+        out.pausedState = state().state;
+        const heldAt = state().stepIndex;
+        await sleep(1300);
+        out.pauseHeld = state().stepIndex === heldAt;
+
+        role('resume').click();
+        out.resumedState = state().state;
+        await sleep(150);
+        role('pause').click();
+
+        const beforeNext = state().stepIndex;
+        role('next').click();
+        out.nextDelta = state().stepIndex - beforeNext;
+
+        role('next').click();
+        out.nextDeltaAgain = state().stepIndex - beforeNext;
+
+        document.querySelector('[data-speed="1.5"]').click();
+        out.speed = state().speed;
+        document.querySelector('[data-speed="0.75"]').click();
+        out.speedSlow = state().speed;
+        document.querySelector('[data-speed="1"]').click();
+        out.speedNormal = state().speed;
+
+        role('reset').click();
+        out.afterReset = { state: state().state, stepIndex: state().stepIndex };
+        out.shownAfterReset = document.querySelectorAll('.sim-node.is-shown').length;
+        api.closeSimulation();
+        return out;
+      })()
+    `);
+    check(results, 'qa5_start', controls.opened && controls.afterStart === 'running' && controls.beforeStart === 'idle', controls.afterStart);
+    check(results, 'qa5_autoAdvance', controls.autoAdvanced, `step ${controls.startedStep} -> ${controls.runningStep}`);
+    check(results, 'qa6_pause', controls.pausedState === 'paused' && controls.pauseHeld);
+    check(results, 'qa7_resume', controls.resumedState === 'running');
+    check(results, 'qa8_next', controls.nextDelta === 1 && controls.nextDeltaAgain === 2, `+${controls.nextDelta} +${controls.nextDeltaAgain}`);
+    check(results, 'qa9_reset',
+      controls.afterReset.state === 'idle'
+      && controls.afterReset.stepIndex === -1
+      && controls.shownAfterReset === 0);
+    check(results, 'qa10_speed',
+      controls.speed === 1.5 && controls.speedSlow === 0.75 && controls.speedNormal === 1);
+
+    // 11) keyboard, and the arbitration with the lecture's own next/prev keys
+    const keyboard = await run('keyboard', `
+      (async () => {
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        const api = window.__jucodingV4;
+        const state = () => api.simulationState;
+        const key = (k) => document.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+        const out = {};
+
+        api.gotoScene(3);
+        const sceneAtStart = api.sceneIndex;
+        document.querySelector('[data-sim="ai-agent"]').click();
+        await sleep(120);
+
+        key(' ');
+        await sleep(160);
+        out.spaceStarts = state().state === 'running';
+        const at = state().stepIndex;
+        key(' ');
+        out.spacePauses = state().state === 'paused' && state().stepIndex === at;
+
+        const beforeRight = state().stepIndex;
+        key('ArrowRight');
+        out.rightIsNextStep = state().stepIndex === beforeRight + 1;
+        out.rightDidNotChangeScene = api.sceneIndex === sceneAtStart;
+
+        const beforeReset = state().stepIndex;
+        key('r');
+        out.rResets = state().stepIndex === -1 && beforeReset >= 0;
+        out.rDidNotChangeScene = api.sceneIndex === sceneAtStart;
+
+        // With the simulation closed the lecture keys must behave as before.
+        api.closeSimulation();
+        key('ArrowRight');
+        out.closedRightAdvancesScene = api.sceneIndex === sceneAtStart + 1;
+        key('ArrowLeft');
+        out.closedLeftGoesBack = api.sceneIndex === sceneAtStart;
+
+        key('Escape');
+        out.escapeHarmless = true;
+        return out;
+      })()
+    `);
+    check(results, 'qa11_keyboard',
+      keyboard.spaceStarts && keyboard.spacePauses && keyboard.rightIsNextStep
+      && keyboard.rightDidNotChangeScene && keyboard.rResets && keyboard.rDidNotChangeScene
+      && keyboard.closedRightAdvancesScene && keyboard.closedLeftGoesBack,
+      keyboard);
+
+    // Every simulation: opens, reaches the end, draws every connector, fits.
+    const simRuns = [];
+    for (const sim of SIMULATIONS) {
+      const probeRun = await run('sim', `
+        (async () => {
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          const api = window.__jucodingV4;
+          api.gotoScene(${sim.scene});
+          await sleep(80);
+          const button = document.querySelector('[data-sim="${sim.id}"]');
+          if (!button) return { missing: true };
+          button.click();
+          await sleep(120);
+          const total = api.simulationState.total;
+          let guard = 0;
+          while (api.simulationState.state !== 'finished' && guard < 40) {
+            document.querySelector('[data-role="next"]').click();
+            guard += 1;
+            await sleep(12);
+          }
+          await sleep(120);
+          const edges = [...document.querySelectorAll('.sim-edge')];
+          const nodes = [...document.querySelectorAll('.sim-node')];
+          const host = document.querySelector('.sim-host').getBoundingClientRect();
+          const stage = document.querySelector('.stage-wrap').getBoundingClientRect();
+          return {
+            title: document.querySelector('.sim-title-name')?.textContent || '',
+            total,
+            steps: guard,
+            finished: api.simulationState.state === 'finished',
+            nodes: nodes.length,
+            shown: nodes.filter((n) => n.classList.contains('is-shown')).length,
+            done: nodes.filter((n) => n.classList.contains('is-done')).length,
+            edges: edges.length,
+            drawn: edges.filter((e) => e.classList.contains('is-drawn')).length,
+            withGeometry: edges.filter((e) => (e.getAttribute('d') || '').length > 4).length,
+            fitsStage: host.bottom <= stage.bottom + 1,
+            running: nodes.filter((n) => n.classList.contains('is-running')).length,
+            overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+            overflowY: document.documentElement.scrollHeight > document.documentElement.clientHeight + 1
+          };
+        })()
+      `);
+      simRuns.push({ id: sim.id, ...probeRun });
+      if (sim.id === 'ai-agent' || sim.id === 'chatgpt-vs-computer-agent' || sim.id === 'safety-boundary') {
+        fs.writeFileSync(path.join(qaDir, `jucoding-v4-sim-${sim.id}.png`), (await win.webContents.capturePage()).toPNG());
+      }
+    }
+    const simOk = simRuns.every((r) => !r.missing
+      && r.finished
+      && r.shown === r.nodes
+      && r.done === r.nodes
+      && r.drawn === r.edges
+      && r.withGeometry === r.edges
+      && r.fitsStage
+      && r.running === 0);
+    check(results, 'qa5_allSimulations', simOk, simRuns);
+
+    // 12) prefers-reduced-motion
+    let reduced = { error: 'debugger unavailable' };
+    try {
+      win.webContents.debugger.attach('1.3');
+      await win.webContents.debugger.sendCommand('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-reduced-motion', value: 'reduce' }]
+      });
+      await wait(200);
+      reduced = await run('reduced', `
+        (async () => {
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          const api = window.__jucodingV4;
+          api.gotoScene(3);
+          document.querySelector('[data-sim="ai-agent"]').click();
+          await sleep(100);
+          const running = document.querySelector('.sim-node.is-running');
+          const out = {
+            matches: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+            pulseAnimation: running ? getComputedStyle(running, '::after').animationName : 'none',
+            nodeTransition: getComputedStyle(document.querySelector('.sim-node')).transitionDuration,
+            edgeTransition: getComputedStyle(document.querySelector('.sim-edge')).transitionDuration
+          };
+          // State must still advance with motion switched off.
+          document.querySelector('[data-role="next"]').click();
+          await sleep(80);
+          out.stillSteps = api.simulationState.stepIndex;
+          api.closeSimulation();
+          return out;
+        })()
+      `);
+      win.webContents.debugger.detach();
+    } catch (err) {
+      reduced = { error: err.message };
+    }
+    check(results, 'qa12_reducedMotion',
+      reduced.matches === true
+      && reduced.pulseAnimation === 'none'
+      && /^0s(, 0s)*$/.test(String(reduced.nodeTransition))
+      && /^0s(, 0s)*$/.test(String(reduced.edgeTransition))
+      && reduced.stillSteps === 0,
+      reduced);
+
+    // ------------------------------------------------------------- layout ---
+    // 25) 1920x1080
+    win.setContentSize(1920, 1080);
+    await wait(500);
+    const wide = await run('wide', `
+      (() => {
+        const out = [];
+        const api = window.__jucodingV4;
+        for (const i of [0, 3, 6, 19]) {
+          api.gotoScene(i);
+          out.push({
+            i,
+            overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+            overflowY: document.documentElement.scrollHeight > document.documentElement.clientHeight + 1
+          });
+        }
+        api.gotoScene(4);
+        document.querySelector('[data-sim="chatgpt-vs-computer-agent"]').click();
+        const host = document.querySelector('.sim-host').getBoundingClientRect();
+        const stage = document.querySelector('.stage-wrap').getBoundingClientRect();
+        return {
+          viewport: { w: window.innerWidth, h: window.innerHeight },
+          out,
+          simFits: host.bottom <= stage.bottom + 1
+        };
+      })()
+    `);
+    check(results, 'qa25_noOverflow1920',
+      wide.out.every((o) => !o.overflowX && !o.overflowY) && wide.simFits, wide);
+    fs.writeFileSync(path.join(qaDir, 'jucoding-v4-1920x1080.png'), (await win.webContents.capturePage()).toPNG());
+    win.setContentSize(1366, 768);
+    await wait(350);
+
+    // ------------------------------------------------- forms and dialogs ---
+    const projectForm = await run('projectForm', `
       (() => {
         const clickNextUntil = (selector, max = 30) => {
           let guard = 0;
@@ -81,7 +460,7 @@ app.whenReady().then(async () => {
       })()
     `);
 
-    const automationForm = await win.webContents.executeJavaScript(`
+    const automationForm = await run('automationForm', `
       (() => {
         let guard = 0;
         while (!document.querySelector('#auto-build') && guard < 30) {
@@ -105,7 +484,7 @@ app.whenReady().then(async () => {
       })()
     `);
 
-    const dialogs = await win.webContents.executeJavaScript(`
+    const dialogs = await run('dialogs', `
       (() => {
         const chapters = document.querySelector('#chapter-dialog');
         const map = document.querySelector('#map-dialog');
@@ -117,42 +496,59 @@ app.whenReady().then(async () => {
         map?.close();
         document.querySelector('#btn-notes')?.click();
         const notesOpen = document.querySelector('#speaker-cue')?.classList.contains('open') || false;
-        return { chaptersOpen, mapOpen, notesOpen };
+        const summary = document.querySelector('#cue-summary')?.textContent || '';
+        return { chaptersOpen, mapOpen, notesOpen, summary };
       })()
     `);
 
-    const sceneCount = Number((initial.counter.match(/\/\s*(\d+)/) || [])[1] || 0);
-    const ok = initial.title.includes('JuCoding')
-      && initial.brand === 'JuCoding'
-      && initial.deck
-      && initial.stage
-      && sceneCount >= 18
-      && initial.chapterButtons === 6
-      && initial.hasNext
-      && initial.hasPrev
-      && initial.hasMap
-      && initial.hasNotes
-      && !initial.overflowX
-      && !initial.overflowY
-      && projectForm.present
+    // 26) console errors  27) offline
+    check(results, 'qa26_consoleErrors', errors.length === 0, errors);
+    check(results, 'qa27_offline', remoteRequests.length === 0, remoteRequests);
+
+    check(results, 'projectForm',
+      projectForm.present
       && projectForm.output.includes('모임 자료를 자동으로 정리하는 앱')
       && projectForm.output.includes('스터디 운영자')
-      && !projectForm.overflowX
-      && !projectForm.overflowY
-      && automationForm.present
+      && !projectForm.overflowX && !projectForm.overflowY);
+    check(results, 'automationForm',
+      automationForm.present
       && automationForm.output.includes('재고 기록')
       && automationForm.output.includes('날짜별 재고표 저장')
-      && !automationForm.overflowX
-      && !automationForm.overflowY
-      && dialogs.chaptersOpen
-      && dialogs.mapOpen
-      && dialogs.notesOpen
-      && errors.length === 0;
+      && !automationForm.overflowX && !automationForm.overflowY);
+    check(results, 'dialogs', dialogs.chaptersOpen && dialogs.mapOpen && dialogs.notesOpen);
+    check(results, 'cueSummary', dialogs.summary.length > 0, dialogs.summary);
 
-    const report = { ok, initial, projectForm, automationForm, dialogs, errors, screenshotPath };
-    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf-8');
-    console.log(JSON.stringify(report, null, 2));
-    app.exit(ok ? 0 : 1);
+    const failed = Object.entries(results).filter(([, v]) => !v.ok).map(([k]) => k);
+    const report = {
+      ok: failed.length === 0,
+      failed,
+      results,
+      initial,
+      assets,
+      controls,
+      keyboard,
+      simRuns,
+      reduced,
+      wide,
+      projectForm,
+      automationForm,
+      dialogs,
+      errors,
+      remoteRequests,
+      screenshots: {
+        '1366x768': path.join(qaDir, 'jucoding-v4-1366x768.png'),
+        '1920x1080': path.join(qaDir, 'jucoding-v4-1920x1080.png')
+      }
+    };
+    fs.writeFileSync(path.join(qaDir, 'jucoding-v4-1366x768.json'), JSON.stringify(report, null, 2), 'utf-8');
+    for (const [name, value] of Object.entries(results)) {
+      console.log(`${value.ok ? '✓' : '✗'} ${name}`);
+    }
+    if (failed.length) {
+      console.error(`\nFAILED: ${failed.join(', ')}`);
+      console.error(JSON.stringify({ controls, keyboard, simRuns, reduced, wide }, null, 2));
+    }
+    app.exit(failed.length ? 1 : 0);
   } catch (error) {
     console.error(error);
     app.exit(1);

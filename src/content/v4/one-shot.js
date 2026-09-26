@@ -20,6 +20,7 @@
   const progressBar = document.getElementById('progress-bar');
   const cue = document.getElementById('speaker-cue');
   const cueTitle = document.getElementById('cue-title');
+  const cueSummary = document.getElementById('cue-summary');
   const cueBody = document.getElementById('cue-body');
   const cueExtra = document.getElementById('cue-extra');
   const chapterDialog = document.getElementById('chapter-dialog');
@@ -313,6 +314,120 @@
     .filter((scene) => typeof SCENE_RENDERERS[scene.id] === 'function')
     .map((scene) => ({ ...scene, render: SCENE_RENDERERS[scene.id] }));
 
+  // ---------------------------------------------------------------------------
+  // Approved Archive overrides.
+  //
+  // These come from the user's Archive and are the ONLY thing that can change
+  // lecture text at runtime. The installed app is never written to, so a fresh
+  // install or an uninstalled copy still behaves identically.
+  // ---------------------------------------------------------------------------
+  const escapeHtml = (text) => String(text == null ? '' : text)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+  // A scene created entirely from Archive material renders from a small block
+  // vocabulary rather than from a hand-written renderer.
+  const renderDataScene = (scene) => {
+    const blocks = Array.isArray(scene.blocks) ? scene.blocks : [];
+    const body = blocks.map((block) => {
+      const type = block.type || 'lead';
+      if (type === 'quote') return `<div class="big-quote">${escapeHtml(block.text || '')}</div>`;
+      if (type === 'cards') {
+        const items = (block.items || []).map((item) => `
+          <div class="card soft-purple">
+            <h3>${escapeHtml(item.title || '')}</h3>
+            <p>${escapeHtml(item.text || '')}</p>
+          </div>`).join('');
+        return `<div class="grid ${(block.items || []).length >= 4 ? 'four' : 'three'}">${items}</div>`;
+      }
+      if (type === 'list') {
+        return `<div class="risk-grid"><div class="risk-card low"><h3>${escapeHtml(block.title || '핵심 내용')}</h3><ul>${
+          (block.items || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('')
+        }</ul></div></div>`;
+      }
+      return `<p class="lead">${escapeHtml(block.text || '')}</p>`;
+    }).join('');
+    return `
+      <div class="scene">
+        ${header(scene.kicker || 'ARCHIVE MATERIAL', escapeHtml(scene.title || ''), scene.sub || '자료함에서 추가된 장면입니다.')}
+        ${body || `<p class="lead">${escapeHtml(scene.narration || '')}</p>`}
+      </div>`;
+  };
+
+  const archiveAssetFigure = (scene) => {
+    const asset = scene.archiveAsset;
+    if (!asset || !asset.archivePath) return '';
+    const src = window.vibeCodingApp && typeof window.vibeCodingApp.archiveUrl === 'function'
+      ? window.vibeCodingApp.archiveUrl(asset.archivePath)
+      : '';
+    if (!src) return '';
+    return `
+      <figure class="v4-asset-figure v4-asset-hero">
+        <img src="${escapeHtml(src)}" alt="${escapeHtml(asset.title || '자료함 자료')}"
+             data-asset-full="${escapeHtml(src)}" data-asset-title="${escapeHtml(asset.title || '자료함 자료')}"
+             data-asset-cap="${escapeHtml(asset.caption || '')}">
+        <figcaption><b>${escapeHtml(asset.title || '자료함 자료')} · 클릭하면 크게 보기</b>${escapeHtml(asset.caption || '')}<br><small>Archive 자료함 자료 · 인터넷 없이 표시됩니다</small></figcaption>
+      </figure>`;
+  };
+
+  let appliedOverrideCount = 0;
+
+  function applyOverrides(overrides) {
+    if (!overrides) return 0;
+    const sceneOverrides = overrides.scenes || {};
+    const assets = overrides.assets || {};
+    const newScenes = Array.isArray(overrides.newScenes) ? overrides.newScenes : [];
+    let count = 0;
+
+    for (const scene of scenes) {
+      const patch = sceneOverrides[scene.id];
+      if (patch) {
+        for (const field of ['title', 'narration', 'cue', 'extra']) {
+          if (typeof patch[field] === 'string' && patch[field].trim()) {
+            scene[field] = patch[field];
+            count += 1;
+          }
+        }
+      }
+      const asset = assets[scene.id];
+      if (asset && asset.archivePath) {
+        scene.archiveAsset = asset;
+        count += 1;
+      }
+    }
+
+    for (const extra of newScenes) {
+      if (!extra || !extra.id) continue;
+      if (scenes.some((scene) => scene.id === extra.id)) continue;
+      scenes.push({
+        ...extra,
+        chapter: extra.chapter || chapters[chapters.length - 1].id,
+        origin: 'archive',
+        render: () => renderDataScene(extra)
+      });
+      count += 1;
+    }
+    return count;
+  }
+
+  async function loadOverrides() {
+    const bridge = window.vibeCodingApp;
+    if (!bridge || typeof bridge.getLectureOverrides !== 'function') return;
+    try {
+      const result = await bridge.getLectureOverrides();
+      if (!result || !result.ok || !result.overrides) return;
+      appliedOverrideCount = applyOverrides(result.overrides);
+      if (appliedOverrideCount) {
+        const notice = document.getElementById('archive-notice');
+        if (notice) {
+          notice.textContent = `자료함 적용 내용 ${appliedOverrideCount}건이 반영되어 있습니다.`;
+          notice.hidden = false;
+        }
+        renderScene();
+      }
+    } catch { /* lecture stays on the shipped content when the bridge is absent */ }
+  }
+
   let index = 0;
   let cueOpen = false;
   let simView = null;
@@ -348,6 +463,11 @@
     const scene = scenes[index];
     stage.innerHTML = scene.render();
     const sceneEl = stage.querySelector('.scene');
+    // An Archive image approved for this scene is appended here rather than
+    // baked into the renderer, so the renderer stays content-free.
+    if (sceneEl && scene.archiveAsset) {
+      sceneEl.insertAdjacentHTML('beforeend', archiveAssetFigure(scene));
+    }
     applyStagger(sceneEl || stage);
 
     const chapter = getChapter(scene.chapter);
@@ -392,6 +512,8 @@
     cue.classList.toggle('open', cueOpen);
     cue.setAttribute('aria-hidden', String(!cueOpen));
     cueTitle.textContent = scene.title;
+    cueSummary.textContent = scene.narration || '';
+    cueSummary.hidden = !scene.narration;
     cueBody.textContent = scene.cue;
     cueExtra.textContent = scene.extra || '';
   }
@@ -499,6 +621,9 @@
     if (target >= 0) index = target;
   }
   renderScene();
+  // Renders immediately with the shipped content, then re-renders once the
+  // approved Archive overrides arrive, so a missing bridge is never a blank slide.
+  loadOverrides();
 
   const homeButton = document.getElementById('btn-home');
   homeButton?.addEventListener('click', () => {
@@ -528,6 +653,8 @@
     get sceneCount() { return scenes.length; },
     get simulationOpen() { return Boolean(simView && simView.isOpen); },
     get simulationState() { return simView?.engine?.snapshot() || null; },
+    get appliedOverrideCount() { return appliedOverrideCount; },
+    get scenes() { return scenes.map((s) => ({ id: s.id, title: s.title, narration: s.narration, origin: s.origin || 'shipped' })); },
     openSimulation: (id) => simView?.open(id),
     closeSimulation: () => simView?.close(),
     gotoScene

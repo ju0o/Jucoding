@@ -6,13 +6,23 @@
 // Reused Electron capabilities (extracted from legacy main.js):
 // BrowserWindow, preload, fullscreen IPC + shortcuts, safe external links,
 // user-data load/save, backup export/import.
+// V4.1 adds the JuCoding Archive (external material inbox + approved lecture
+// update flow). See v4-archive.js and v4-organizer.js.
 
 const { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const AdmZip = require('adm-zip');
+const archive = require('./v4-archive');
+const organizer = require('./v4-organizer');
 
 let homeWindow;
+
+// Must run before app is ready so the renderer may load jucoding-archive://
+// images. The scheme is registered for a narrow purpose only: serving files
+// that live inside the user's Archive folder, which the sandboxed renderer
+// cannot reach over file://.
+archive.registerArchiveScheme();
 
 function getOptionalIconPath() {
   const iconPath = path.join(__dirname, '../../build/icon.ico');
@@ -176,11 +186,92 @@ ipcMain.handle('import-user-data', async () => {
   return { ok: true, filePath: result.filePaths[0], data: payload.data };
 });
 
+// ---------------------------------------------------------------------------
+// JuCoding Archive / Material Inbox
+//
+// Order of operations is enforced in the UI (scan -> analyse -> draft ->
+// preview -> human approval -> apply) and here: applyProposal() always writes
+// Archive/backup/<timestamp>/ before it touches the lecture overrides, and it
+// never writes inside the installed app.
+// ---------------------------------------------------------------------------
+
+ipcMain.handle('archive-status', async () => {
+  try {
+    // First run: create Documents/JuCoding/Archive/{inbox,reviewed,applied,backup}
+    return await archive.status();
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+});
+
+ipcMain.handle('archive-open-folder', async (_event, which) => {
+  try {
+    return await archive.openFolder(which);
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+});
+
+ipcMain.handle('archive-scan', async () => {
+  try {
+    return { ok: true, ...(await archive.scanInbox()) };
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+});
+
+ipcMain.handle('archive-propose', async (_event, fileNames) => {
+  try {
+    return await archive.propose(fileNames);
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+});
+
+ipcMain.handle('archive-proposals', async () => {
+  try {
+    return { ok: true, proposals: await archive.listProposals() };
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+});
+
+ipcMain.handle('archive-proposal', async (_event, id) => {
+  try {
+    const proposal = await archive.getProposal(id);
+    return proposal ? { ok: true, proposal } : { ok: false, message: '변경안을 찾을 수 없습니다.' };
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+});
+
+ipcMain.handle('archive-apply', async (_event, proposalId, decisions) => {
+  try {
+    return await archive.applyProposal(proposalId, decisions);
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+});
+
+ipcMain.handle('archive-overrides', async () => {
+  try {
+    return { ok: true, overrides: await archive.readOverrides() };
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+});
+
+ipcMain.handle('organizer-status', () => organizer.status());
+
 // Legacy course-management handlers (read-manifest, read-official-sources,
 // read-community-share-resources, save-pdf, open-content-path) are intentionally
 // NOT registered here: the V4 default runtime does not load V3 content.
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  archive.registerArchiveProtocol();
+  // Create the external Archive tree up front so the button works on first run
+  // even before the instructor opens the 자료실 section.
+  await archive.ensureArchive().catch(() => { /* surfaced later via archive-status */ });
   createHomeWindow();
   registerShortcuts();
 });
