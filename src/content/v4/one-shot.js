@@ -33,6 +33,13 @@
       </div>
     </div>`;
 
+  const ASSET_BASE = '../../assets/lecture/v4/';
+  const assetFigure = (file, title, caption, hero) => `
+    <figure class="v4-asset-figure${hero ? ' v4-asset-hero' : ''}">
+      <img src="${ASSET_BASE}${file}" alt="${title}" data-asset-full="${ASSET_BASE}${file}" data-asset-title="${title}" data-asset-cap="${caption}">
+      <figcaption><b>${title} · 클릭하면 크게 보기</b>${caption}<br><small>수업용 로컬 자료 · 인터넷 없이 표시됩니다</small></figcaption>
+    </figure>`;
+
   const scenes = [
     {
       chapter:'why', id:'cover', title:'오늘의 지도',
@@ -43,6 +50,7 @@
           <span class="kicker">3시간 스터디 · 왕초보용</span>
           <h1 class="hero"><span class="grad">AI · Agent · 바이브코딩</span></h1>
           <p class="lead">AI에게 물어보는 것에서 시작해서, Agent에게 일을 맡기고,<br>결국 내가 원하는 도구와 공간까지 만드는 흐름을 한 번에 이해합니다.</p>
+          ${assetFigure('ai-agent-vibecoding.webp', 'AI · Agent · 바이브코딩 개념도', '제1장 대표 자료. AI라는 큰 범주 안에서 Agent가 목표를 향해 행동하고, 그 협업 방식이 바이브코딩임을 한 장으로 정리합니다.', true)}
           <div class="robot-hero" aria-hidden="true"></div>
           <span class="float-chip chip-ai">AI</span><span class="float-chip chip-agent">Agent</span><span class="float-chip chip-vibe">Vibe Coding</span>
         </div>`
@@ -79,11 +87,11 @@
             <div class="formula-item" style="border-color:#b9aaff;background:#f5f1ff"><div class="icon">🧊</div><strong>나만의 도구</strong><span>내 방식대로 일하는 공간</span></div>
           </div>
           <div class="process">
-            <div class="process-node"><div class="e">🗣️</div><b>원하는 것 설명</b><span>목표와 상황을 말함</span></div><div class="process-arrow">→</div>
-            <div class="process-node"><div class="e">🤖</div><b>AI가 구현</b><span>코드 · 화면 · 구조 제작</span></div><div class="process-arrow">→</div>
-            <div class="process-node"><div class="e">👀</div><b>사람이 확인</b><span>원하는 결과인지 확인</span></div><div class="process-arrow">→</div>
-            <div class="process-node"><div class="e">🔁</div><b>수정 반복</b><span>점점 내 방식에 맞춤</span></div>
-          </div>
+              <div class="process-node"><div class="e">🗣️</div><b>원하는 것 설명</b><span>목표와 상황을 말함</span></div><div class="process-arrow">→</div>
+              <div class="process-node"><div class="e">🤖</div><b>AI가 구현</b><span>코드 · 화면 · 구조 제작</span></div><div class="process-arrow">→</div>
+              <div class="process-node"><div class="e">👀</div><b>사람이 확인</b><span>원하는 결과인지 확인</span></div><div class="process-arrow">→</div>
+              <div class="process-node"><div class="e">🔁</div><b>수정 반복</b><span>점점 내 방식에 맞춤</span></div>
+            </div>
         </div>`
     },
     {
@@ -127,6 +135,7 @@
             <div class="agent-card" style="background:linear-gradient(180deg,#f5f0ff,#fff)"><h3>⌨️ 터미널 Agent</h3><p>내 컴퓨터의 파일을 읽고, 명령을 실행하고, 코드를 직접 수정할 수 있습니다.</p><div class="agent-mini-flow"><span>목표</span><i>→</i><span>파일 수정</span><i>→</i><span>코드 실행</span><i>→</i><span>테스트</span></div></div>
           </div>
           <div class="big-quote">ChatGPT: “<b>어떻게</b> 고쳐?” &nbsp;&nbsp; ↔ &nbsp;&nbsp; Agent: “<b>직접</b> 고쳐.”</div>
+          ${assetFigure('chat-ai-vs-computer-agent.webp', '대화형 AI와 컴퓨터 Agent 비교표', '제2장 보조 자료이자 유인물. 화면 속 요금제·모델 순위는 수시로 바뀌므로 참고용으로만 보고 핵심 차이인 행동 범위에 집중합니다.', false)}
         </div>`
     },
     {
@@ -142,6 +151,7 @@
             <div class="term-card api"><span class="num">03</span><div class="term-art">↔️</div><div><h3>API</h3><strong>= 서로 말 거는 방법</strong><p>서로 다른 프로그램이 데이터를 주고받는 약속</p></div></div>
             <div class="term-card database"><span class="num">04</span><div class="term-art">🗄️</div><div><h3>데이터베이스</h3><strong>= 기억하는 곳</strong><p>필요한 데이터를 저장하고 다시 꺼내는 곳</p></div></div>
           </div>
+          ${assetFigure('beginner-dev-terms.webp', '기초 개발 용어 정리도', '제3장 대표 자료. 프론트엔드·백엔드·API·데이터베이스와 GUI·TUI·CLI 관계를 한 장으로 복습합니다.', false)}
         </div>`
     },
     {
@@ -187,6 +197,7 @@
             <div class="doc-card"><span class="tag">03</span><h3>Wireframe</h3><strong>= 화면 스케치</strong><p>화면에 무엇이 어디에 있을지 미리 그린 도면</p></div>
             <div class="doc-card"><span class="tag">04</span><h3>Prototype</h3><strong>= 눌러보는 시제품</strong><p>완성 전 실제 사용 흐름을 미리 확인하는 모형</p></div>
           </div>
+          ${assetFigure('project-planning-terms.webp', '프로젝트 기획 용어 정리도', '제4장 대표 자료. PRD·WBS·Wireframe·Prototype·ERD·DBML·SSOT가 프로젝트의 어느 단계에서 쓰이는지 한 장으로 정리합니다.', false)}
         </div>`
     },
     {
@@ -291,6 +302,7 @@
             <div class="mcp-card"><h3 style="font-size:27px;margin-top:0">쉽게 말하면</h3><div class="big-quote" style="font-size:24px;box-shadow:none">AI에게 <b style="color:#674fe9">손과 도구함</b>을 연결하는 공통 규격</div><p style="color:#6d7691;line-height:1.7">MCP 자체가 일을 하는 것은 아닙니다. Agent가 어떤 도구를 발견하고 호출할 수 있도록 연결해주는 방식입니다.</p></div>
             <div class="mcp-card mcp-hub"><div class="mcp-core">MCP</div><span class="tool-orbit tool-1">🌐 브라우저</span><span class="tool-orbit tool-2">📁 파일</span><span class="tool-orbit tool-3">🎨 디자인</span><span class="tool-orbit tool-4">🗄️ DB</span></div>
           </div>
+          ${assetFigure('automation-deploy-mcp.webp', '배포 · MCP · Agent · Worker 정리도', '제6장 대표 자료. 배포 흐름과 MCP 연결, Agent의 판단과 Worker의 실행 분담을 한 장으로 정리합니다.', false)}
         </div>`
     },
     {
@@ -343,6 +355,21 @@
             </div>
             <div class="output-card"><h3>⚡ 자동화 흐름</h3><pre id="auto-output">반복 업무를 3단계로 적어보세요.\n\n입력 → Agent/Worker → 결과</pre></div>
           </div>
+        </div>`
+    },
+    {
+      chapter:'auto', id:'safety', title:'안전 경계',
+      cue:'이 장은 장식이 아니라 실제 수업입니다. 화면 안 실험과 화면 밖 실제 영향을 구분하고, 영향이 큰 행동은 사람이 직접 확인한다는 원칙을 남겨주세요.',
+      extra:'핵심 문장: 내 화면 안의 실험은 보통 위험이 낮고, 화면 밖의 실제 서비스·사람에게 영향을 주는 행동은 더 강한 확인이 필요하다.',
+      render:() => `
+        <div class="scene">
+          ${header('SAFETY BOUNDARY', '화면 밖으로 나가면 <span class="grad">더 강한 확인</span>이 필요합니다.', '화면 안의 실험이 항상 안전한 것은 아닙니다. 어디까지가 낮은 위험이고 어디부터 확인이 필요한지 경계를 그어봅니다.')}
+          ${assetFigure('safety-boundary.webp', '안전 경계 정리도', '마무리 안전 수업의 핵심 자료. 클릭해서 크게 띄우고 한 장씩 짚으며 설명합니다.', true)}
+          <div class="risk-grid">
+            <div class="risk-card low"><h3>🟢 상대적으로 위험이 낮은 쪽 · 내 화면 안</h3><ul><li>자료 조사·검색</li><li>가짜·예시 데이터로 테스트</li><li>내 컴퓨터에서 실행</li><li>공개 전 초안 작성</li></ul></div>
+            <div class="risk-card high"><h3>🔴 강한 확인이 필요한 쪽 · 화면 밖</h3><ul><li>실제 결제 API 호출</li><li>운영 데이터베이스 쓰기</li><li>공개·SNS 게시</li><li>외부 계정 설정 변경</li><li>다른 사람·서비스에 영향을 주는 행동</li></ul></div>
+          </div>
+          <div class="big-quote" style="font-size:20px">내 화면 안의 실험은 보통 위험이 낮고, 화면 밖의 실제 서비스·사람에게 영향을 주는 행동은 <span style="color:#674fe9">더 강한 확인</span>이 필요하다.</div>
         </div>`
     },
     {
@@ -474,5 +501,33 @@
   });
 
   buildChapterGrid();
+
+  // Deep link: one-shot.html#scene=<id> (used by V4 home sections)
+  const initialHash = (window.location.hash || '').replace(/^#scene=/, '');
+  if (initialHash) {
+    const target = scenes.findIndex((scene) => scene.id === initialHash);
+    if (target >= 0) index = target;
+  }
   renderScene();
+
+  const homeButton = document.getElementById('btn-home');
+  homeButton?.addEventListener('click', () => {
+    window.location.href = '../../renderer/v4/home.html';
+  });
+
+  const assetDialog = document.getElementById('asset-dialog');
+  stage.addEventListener('click', (event) => {
+    const img = event.target.closest('img[data-asset-full]');
+    if (!img || !assetDialog) return;
+    const dialogImg = document.getElementById('asset-dialog-img');
+    const dialogTitle = document.getElementById('asset-dialog-title');
+    const dialogCap = document.getElementById('asset-dialog-cap');
+    if (dialogImg) {
+      dialogImg.src = img.dataset.assetFull;
+      dialogImg.alt = img.alt || '강의 자료';
+    }
+    if (dialogTitle) dialogTitle.textContent = img.dataset.assetTitle || '강의 자료';
+    if (dialogCap) dialogCap.textContent = img.dataset.assetCap || '';
+    if (!assetDialog.open) assetDialog.showModal();
+  });
 })();

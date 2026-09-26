@@ -23,7 +23,7 @@ function createWindow() {
     height: 900,
     minWidth: 1100,
     minHeight: 700,
-    title: 'VIBE STUDIO · Curriculum Studio',
+    title: 'JuCoding · AI & Vibe Coding Studio',
     ...(icon ? { icon } : {}),
     backgroundColor: '#0D0E10',
     webPreferences: {

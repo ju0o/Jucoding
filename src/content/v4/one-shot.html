@@ -18,6 +18,7 @@
         </div>
       </div>
       <div class="top-actions">
+        <button id="btn-home" type="button">홈으로</button>
         <button id="btn-map" type="button">전체 흐름</button>
         <button id="btn-chapters" type="button">목차</button>
         <button id="btn-notes" type="button">강사 메모</button>
@@ -68,6 +69,17 @@
       <div class="map-track"><span>4</span><b>ERD / DBML</b><i>→</i><b>SSOT</b><i>→</i><b>구현</b></div>
       <div class="map-track"><span>5</span><b>개발서버</b><i>→</i><b>배포</b><i>→</i><b>Git / GitHub</b></div>
       <div class="map-track"><span>6</span><b>Agent</b><i>→</i><b>MCP / Worker</b><i>→</i><b>영상 · SNS 자동화</b></div>
+    </div>
+  </dialog>
+
+  <dialog id="asset-dialog" aria-label="강의 자료 크게 보기">
+    <div class="dialog-head">
+      <div><span>LECTURE MATERIAL</span><h2 id="asset-dialog-title">강의 자료</h2></div>
+      <button class="close-dialog" data-close="asset-dialog" type="button">×</button>
+    </div>
+    <div class="asset-dialog-body">
+      <img id="asset-dialog-img" alt="">
+      <p id="asset-dialog-cap" class="asset-dialog-cap"></p>
     </div>
   </dialog>
 
