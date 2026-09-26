@@ -272,7 +272,7 @@ function localPropose({ materials, scenes }) {
       const field = action === 'append' ? 'extra' : 'narration';
       const before = action === 'append' ? (best.extra || '') : (best.narration || '');
 
-      push({
+      push(withSource({
         sceneId: best.id,
         action,
         field,
@@ -285,7 +285,7 @@ function localPropose({ materials, scenes }) {
             : '장면의 한 줄 요약을 이 문장으로 교체합니다.'),
         confidence,
         score: Number(bestScore.toFixed(4))
-      });
+      }, material));
     }
   }
 

@@ -421,6 +421,13 @@ app.whenReady().then(async () => {
     const inboxAfter = fs.readdirSync(path.join(archiveRoot, 'inbox'));
     const appliedFiles = fs.readdirSync(path.join(archiveRoot, 'applied'));
     const reviewedFiles = fs.readdirSync(path.join(archiveRoot, 'reviewed'));
+    const manifestName = appliedFiles.find((n) => n.startsWith('apply-') && n.endsWith('.json'));
+    if (manifestName) {
+      const manifest = JSON.parse(fs.readFileSync(path.join(archiveRoot, 'applied', manifestName), 'utf-8'));
+      check(results, 'qa21_manifestListsBackup',
+        Boolean(manifest.backup) && Array.isArray(manifest.approvedChanges) && manifest.approvedChanges.length > 0,
+        { backup: manifest.backup, approved: manifest.approvedChanges.length });
+    }
     // Only supported material was part of the scanned/proposed set. Ignored
     // files (.pdf, .docx) were never claimed by the flow and may remain.
     const ignoredStillPresent = inboxAfter.every((n) => /\.(pdf|docx)$/i.test(n));
@@ -431,19 +438,28 @@ app.whenReady().then(async () => {
       reviewedFiles.length > 0
       && reviewedFiles.every((n) => !n.startsWith('apply-')),
       reviewedFiles);
-    check(results, 'qa21_appliedFolderHasMaterial',
-      appliedFiles.some((n) => n.endsWith('.md') || n.endsWith('.json') || n.endsWith('.txt')),
-      appliedFiles);
+    // Every source behind an approved change has to reach applied/. Asserting
+    // only that "some material" arrived let a change lose its source attribution
+    // and still pass, which silently mis-filed the file into reviewed/.
+    const appliedProposal = manifestName
+      ? JSON.parse(fs.readFileSync(path.join(archiveRoot, 'applied', manifestName), 'utf-8'))
+      : null;
+    const movedApplied = appliedProposal
+      ? appliedProposal.moved.filter((m) => m.applied).map((m) => m.name)
+      : [];
+    const movedReviewed = appliedProposal
+      ? appliedProposal.moved.filter((m) => !m.applied).map((m) => m.name)
+      : [];
+    check(results, 'qa21_appliedFolderHasMaterial', movedApplied.length > 0, { applied: movedApplied, reviewed: movedReviewed });
+    check(results, 'qa21_appliedMaterialIsInAppliedFolder',
+      movedApplied.length > 0 && movedApplied.every((n) => appliedFiles.includes(n)),
+      { movedApplied, appliedFiles });
+    check(results, 'qa21_reviewedMaterialIsInReviewedFolder',
+      movedReviewed.every((n) => reviewedFiles.includes(n)),
+      { movedReviewed, reviewedFiles });
     check(results, 'qa21_manifestWritten',
       appliedFiles.some((n) => n.startsWith('apply-') && n.endsWith('.json')),
       appliedFiles);
-    const manifestName = appliedFiles.find((n) => n.startsWith('apply-') && n.endsWith('.json'));
-    if (manifestName) {
-      const manifest = JSON.parse(fs.readFileSync(path.join(archiveRoot, 'applied', manifestName), 'utf-8'));
-      check(results, 'qa21_manifestListsBackup',
-        Boolean(manifest.backup) && Array.isArray(manifest.approvedChanges) && manifest.approvedChanges.length > 0,
-        { backup: manifest.backup, approved: manifest.approvedChanges.length });
-    }
 
     mark('filing ok');
     // ---------------------------- deterministic per-action coverage ---------
@@ -479,6 +495,28 @@ app.whenReady().then(async () => {
     // A second replace+append on the same field must append, never clobber.
     check(results, 'qa19_replaceIsNotCumulative',
       gitPatch.narration === 'replace 대상 문장입니다.', gitPatch.narration);
+
+    // ------- regression: prose material keeps its source attribution --------
+    // A .md/.txt file goes through the organizer's statement-extraction path,
+    // which is separate from the explicit-proposal and image paths. A change
+    // that loses sourceName there gets applied to the lecture while its file is
+    // mis-filed into reviewed/, so cover it directly.
+    fs.writeFileSync(path.join(archiveRoot, 'inbox', 'prose-attribution.md'),
+      'AI는 질문에 답하는 기술이고, Agent는 목표를 받고 필요한 도구를 선택해서 실행한 뒤 결과를 확인하고 필요하면 반복합니다.\n', 'utf-8');
+    const proseProposal = await archive.propose(['prose-attribution.md']);
+    const proseChanges = proseProposal.ok ? proseProposal.proposal.changes : [];
+    check(results, 'qa21_proseChangeCarriesSourceName',
+      proseChanges.length > 0 && proseChanges.every((c) => c.sourceName === 'prose-attribution.md'),
+      proseChanges.map((c) => ({ action: c.action, sourceName: c.sourceName })));
+    if (proseChanges.length) {
+      await archive.applyProposal(proseProposal.proposal.id,
+        proseChanges.map((c) => ({ id: c.id, decision: 'apply' })));
+      const appliedNow = fs.readdirSync(path.join(archiveRoot, 'applied'));
+      const reviewedNow = fs.readdirSync(path.join(archiveRoot, 'reviewed'));
+      check(results, 'qa21_proseMaterialLandsInApplied',
+        appliedNow.includes('prose-attribution.md') && !reviewedNow.includes('prose-attribution.md'),
+        { applied: appliedNow, reviewed: reviewedNow });
+    }
 
     // ------------------------------- 18b. reject-only material -> reviewed ---
     // Everything was approved above, so seed a second, unrelated material and
