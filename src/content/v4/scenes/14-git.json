@@ -1,0 +1,9 @@
+{
+  "id": "git",
+  "ordinal": 14,
+  "chapter": "deploy",
+  "title": "Git과 GitHub",
+  "narration": "Git은 코드 변경 기록을 남기는 도구이고, GitHub는 그 기록을 온라인에서 보관하고 공유하는 서비스입니다.",
+  "cue": "GitHub=Git이라고 생각하는 초보자가 많습니다. Git은 변경 기록 시스템, GitHub는 그 기록을 온라인에서 보관/공유하는 서비스라고 분리하세요.",
+  "extra": "“AI가 코드를 망치면 돌아갈 수 있게 기록을 남긴다”는 설명도 실용적입니다."
+}

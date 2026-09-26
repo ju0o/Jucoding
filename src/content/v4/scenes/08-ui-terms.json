@@ -1,0 +1,9 @@
+{
+  "id": "ui-terms",
+  "ordinal": 8,
+  "chapter": "terms",
+  "title": "GUI · TUI · CLI",
+  "narration": "GUI는 그림으로, TUI는 터미널 안에서, CLI는 명령어로 조작하는 방식입니다.",
+  "cue": "같은 프로그램도 화면을 어떻게 조작하느냐에 따라 표현 방식이 달라질 수 있다는 정도면 충분합니다.",
+  "extra": "GUI=그래픽 화면, TUI=터미널 안의 UI, CLI=명령어 입력 방식."
+}

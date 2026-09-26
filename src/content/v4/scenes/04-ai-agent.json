@@ -1,0 +1,13 @@
+{
+  "id": "ai-agent",
+  "ordinal": 4,
+  "chapter": "agent",
+  "title": "AI와 Agent 차이",
+  "narration": "AI는 질문에 답하지만, Agent는 목표를 받고 도구를 선택해 실행한 뒤 결과를 확인하고 필요하면 반복합니다.",
+  "cue": "포함관계 설명보다 “행동 루프”를 먼저 보여주세요. AI Agent는 AI를 이용해 여러 단계의 일을 수행하는 시스템이라고 설명하면 됩니다.",
+  "extra": "AI Agent는 AI의 한 형태/활용 구조입니다. 모든 AI가 Agent처럼 행동하는 것은 아닙니다.",
+  "simulations": [
+    "chat-agent",
+    "ai-agent"
+  ]
+}

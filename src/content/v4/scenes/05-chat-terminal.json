@@ -1,0 +1,12 @@
+{
+  "id": "chat-terminal",
+  "ordinal": 5,
+  "chapter": "agent",
+  "title": "ChatGPT와 터미널 Agent",
+  "narration": "ChatGPT는 설명과 아이디어 정리에 강하고, 터미널 Agent는 내 컴퓨터의 파일과 명령을 직접 다룹니다.",
+  "cue": "“어떻게 고쳐?”라고 묻는 것과 “직접 고쳐.”라고 맡기는 차이로 설명하면 초보자가 가장 빨리 이해합니다.",
+  "extra": "예시: ChatGPT는 수정 방법을 설명할 수 있고, Codex/Claude Code 같은 Agent는 실제 파일과 터미널을 다룰 수 있습니다.",
+  "simulations": [
+    "chatgpt-vs-computer-agent"
+  ]
+}

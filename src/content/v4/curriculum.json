@@ -1,0 +1,170 @@
+{
+  "schema": "jucoding-curriculum",
+  "version": "4.1",
+  "productName": "JuCoding",
+  "lectureTitle": "AI · Agent · 바이브코딩",
+  "chapters": [
+    {
+      "id": "why",
+      "label": "01",
+      "title": "왜 바이브코딩인가?",
+      "time": "약 25분"
+    },
+    {
+      "id": "agent",
+      "label": "02",
+      "title": "AI와 Agent",
+      "time": "약 25분"
+    },
+    {
+      "id": "terms",
+      "label": "03",
+      "title": "기본 개발 용어",
+      "time": "약 30분"
+    },
+    {
+      "id": "plan",
+      "label": "04",
+      "title": "프로젝트 기획 용어",
+      "time": "약 40분"
+    },
+    {
+      "id": "deploy",
+      "label": "05",
+      "title": "개발서버 · 배포 · Git",
+      "time": "약 30분"
+    },
+    {
+      "id": "auto",
+      "label": "06",
+      "title": "MCP · Worker · 자동화",
+      "time": "약 20분"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "cover",
+      "chapter": "why",
+      "file": "01-cover.json"
+    },
+    {
+      "id": "spaces",
+      "chapter": "why",
+      "file": "02-spaces.json"
+    },
+    {
+      "id": "vibe",
+      "chapter": "why",
+      "file": "03-vibe.json"
+    },
+    {
+      "id": "ai-agent",
+      "chapter": "agent",
+      "file": "04-ai-agent.json",
+      "simulations": [
+        "chat-agent",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "chat-terminal",
+      "chapter": "agent",
+      "file": "05-chat-terminal.json",
+      "simulations": [
+        "chatgpt-vs-computer-agent"
+      ]
+    },
+    {
+      "id": "web-terms",
+      "chapter": "terms",
+      "file": "06-web-terms.json"
+    },
+    {
+      "id": "architecture",
+      "chapter": "terms",
+      "file": "07-architecture.json",
+      "simulations": [
+        "frontend-api-backend"
+      ]
+    },
+    {
+      "id": "ui-terms",
+      "chapter": "terms",
+      "file": "08-ui-terms.json"
+    },
+    {
+      "id": "planning-terms-a",
+      "chapter": "plan",
+      "file": "09-planning-terms-a.json"
+    },
+    {
+      "id": "planning-terms-b",
+      "chapter": "plan",
+      "file": "10-planning-terms-b.json"
+    },
+    {
+      "id": "project-flow",
+      "chapter": "plan",
+      "file": "11-project-flow.json"
+    },
+    {
+      "id": "project-form",
+      "chapter": "plan",
+      "file": "12-project-form.json"
+    },
+    {
+      "id": "dev-deploy",
+      "chapter": "deploy",
+      "file": "13-dev-deploy.json"
+    },
+    {
+      "id": "git",
+      "chapter": "deploy",
+      "file": "14-git.json"
+    },
+    {
+      "id": "program-choice",
+      "chapter": "deploy",
+      "file": "15-program-choice.json"
+    },
+    {
+      "id": "mcp",
+      "chapter": "auto",
+      "file": "16-mcp.json"
+    },
+    {
+      "id": "video-auto",
+      "chapter": "auto",
+      "file": "17-video-auto.json",
+      "simulations": [
+        "mcp-worker"
+      ]
+    },
+    {
+      "id": "sns-auto",
+      "chapter": "auto",
+      "file": "18-sns-auto.json",
+      "simulations": [
+        "sns-automation"
+      ]
+    },
+    {
+      "id": "automation-form",
+      "chapter": "auto",
+      "file": "19-automation-form.json"
+    },
+    {
+      "id": "safety",
+      "chapter": "auto",
+      "file": "20-safety.json",
+      "simulations": [
+        "safety-boundary"
+      ]
+    },
+    {
+      "id": "summary",
+      "chapter": "auto",
+      "file": "21-summary.json"
+    }
+  ]
+}

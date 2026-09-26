@@ -1,0 +1,38 @@
+{
+  "schema": "jucoding-simulation",
+  "id": "ai-agent",
+  "title": "목표 → Agent → 도구 → 확인 → 반복 → 완료",
+  "subtitle": "Agent는 말만 하지 않고 행동 루프를 돌립니다",
+  "sceneId": "ai-agent",
+  "nodes": [
+    { "id": "goal", "label": "목표", "icon": "🎯", "note": "“이걸 완성해줘”", "emphasis": true },
+    { "id": "agent", "label": "Agent", "icon": "🤖", "note": "다음 행동 결정", "emphasis": true },
+    { "id": "tool", "label": "도구 사용", "icon": "🛠️", "note": "Worker가 실제 실행" },
+    { "id": "check", "label": "확인", "icon": "✅", "note": "결과가 맞는지 검토" },
+    { "id": "loop", "label": "반복", "icon": "🔁", "note": "부족하면 다시 시도" },
+    { "id": "done", "label": "완료", "icon": "🏆", "note": "목표 달성" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "goal", "to": "agent" },
+    { "id": "e2", "from": "agent", "to": "tool" },
+    { "id": "e3", "from": "tool", "to": "check" },
+    { "id": "e4", "from": "check", "to": "loop" },
+    { "id": "e5", "from": "loop", "to": "agent", "curve": true },
+    { "id": "e6", "from": "loop", "to": "done" }
+  ],
+  "steps": [
+    { "id": "s1", "label": "목표 카드 등장", "target": "goal", "action": "show", "duration": 800, "narration": "사용자가 목표를 줍니다. “이걸 완성해줘.”" },
+    { "id": "s2", "label": "Agent 활성화", "target": "agent", "action": "connect", "duration": 800, "narration": "Agent가 목표를 받습니다." },
+    { "id": "s3", "label": "Agent 판단", "target": "agent", "action": "activate", "duration": 1000, "narration": "Agent가 목표를 이해하고 다음 행동을 정합니다." },
+    { "id": "s4", "label": "도구 연결", "target": "tool", "action": "connect", "duration": 800, "narration": "Agent가 필요한 도구를 고릅니다." },
+    { "id": "s5", "label": "Worker 실행", "target": "tool", "action": "activate", "duration": 1100, "narration": "Worker가 선택한 도구를 실제로 실행합니다." },
+    { "id": "s6", "label": "도구 실행 완료", "target": "tool", "action": "complete", "duration": 500, "narration": "도구 실행이 끝났습니다." },
+    { "id": "s7", "label": "확인 단계", "target": "check", "action": "connect", "duration": 800, "narration": "Agent가 실행 결과를 확인합니다." },
+    { "id": "s8", "label": "결과 검토", "target": "check", "action": "activate", "duration": 1000, "narration": "결과가 목표에 맞는지 검토합니다." },
+    { "id": "s9", "label": "반복 단계", "target": "loop", "action": "connect", "from": "check", "duration": 800, "narration": "아직 부족하면 도구를 다시 사용합니다." },
+    { "id": "s10", "label": "반복 실행", "target": "loop", "action": "activate", "duration": 1000, "narration": "목표가 만족될 때까지 같은 루프를 반복합니다." },
+    { "id": "s11", "label": "Agent로 되돌아가기", "target": "agent", "action": "connect", "from": "loop", "duration": 1000, "narration": "결과가 목표에 안 맞으면 Agent로 되돌아가 다음 행동을 정합니다." },
+    { "id": "s12", "label": "완료 단계", "target": "done", "action": "connect", "from": "loop", "duration": 800, "narration": "목표를 달성했다면 반복을 끝내고 마칩니다." },
+    { "id": "s13", "label": "완료 표시", "target": "done", "action": "complete", "duration": 800, "narration": "목표 → 도구 → 확인 → 반복 → 완료 루프가 끝났습니다." }
+  ]
+}
