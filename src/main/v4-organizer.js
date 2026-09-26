@@ -157,6 +157,16 @@ function makeChangeId(sceneId, action, after) {
   return `c${hash.toString(36)}`;
 }
 
+// Presentation fields a new_scene needs, passed through only when present.
+function newSceneFields(change) {
+  const out = {};
+  for (const key of ['title', 'chapter', 'cue', 'extra']) {
+    if (typeof change[key] === 'string' && change[key].trim()) out[key] = change[key].trim();
+  }
+  if (Array.isArray(change.blocks) && change.blocks.length) out.blocks = change.blocks;
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Local rule provider
 // ---------------------------------------------------------------------------
@@ -225,7 +235,10 @@ function localPropose({ materials, scenes }) {
           reason: change.reason || `${material.name} 안에 이미 작성된 변경안이 있습니다.`,
           confidence: Object.values(CONFIDENCE).includes(change.confidence)
             ? change.confidence
-            : CONFIDENCE.HIGH
+            : CONFIDENCE.HIGH,
+          // A new_scene carries its own presentation, so those fields must
+          // survive re-emission instead of being flattened to `after`.
+          ...(change.action === 'new_scene' ? newSceneFields(change) : {})
         }, material));
       }
       continue;

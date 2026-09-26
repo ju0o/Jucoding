@@ -11,7 +11,7 @@
 // The window is hidden by default so QA never steals focus or covers the
 // desktop. Background throttling is disabled and the compositor is invalidated
 // before every capture, which keeps capturePage() from returning a stale frame.
-// Set JUCODING_QA_VISIBLE=1 to run with a real visible window.
+// Set --visible (or JUCODING_QA_VISIBLE=1) to run with a real visible window.
 //
 // prefers-reduced-motion still needs a real media emulation, and the layout
 // checks measure actual pixels, so neither depends on the window being visible.
@@ -29,7 +29,10 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // compositor is invalidated before each capture), which keeps capturePage()
 // honest. Set JUCODING_QA_VISIBLE=1 to run with a real visible window.
 
-const VISIBLE = process.env.JUCODING_QA_VISIBLE === '1';
+// argv is checked as well as the env var because WSL does not forward
+// environment variables into Windows binaries, which is exactly the host
+// this QA runs on.
+const VISIBLE = process.env.JUCODING_QA_VISIBLE === '1' || process.argv.includes('--visible');
 
 const ASSETS = [
   { file: 'ai-agent-vibecoding.webp', scene: 'cover' },
@@ -571,7 +574,7 @@ app.whenReady().then(async () => {
         captured: skippedScreenshots.length === 0,
         skipped: skippedScreenshots,
         hint: skippedScreenshots.length
-          ? 'Hidden window: Chromium does not produce a trustworthy frame, so screenshots were skipped. Re-run with JUCODING_QA_VISIBLE=1 for images. No assertion depends on them.'
+          ? 'Hidden window: Chromium does not produce a trustworthy frame, so screenshots were skipped. Re-run with --visible for images. No assertion depends on them.'
           : 'Screenshots written to artifacts/qa.'
       }
     };
@@ -581,7 +584,7 @@ app.whenReady().then(async () => {
     }
     if (skippedScreenshots.length) {
       console.log(`- screenshots skipped (hidden window): ${skippedScreenshots.join(', ')}`);
-      console.log('  re-run with JUCODING_QA_VISIBLE=1 to capture images');
+      console.log('  re-re-run with --visible to capture images');
     }
     if (failed.length) {
       console.error(`\nFAILED: ${failed.join(', ')}`);

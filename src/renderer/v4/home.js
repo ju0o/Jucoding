@@ -382,7 +382,21 @@
     proposalEls.status.textContent = '기본값은 "기존 유지"입니다. 반영할 변경만 눌러 표시한 뒤 적용하세요.';
   }
 
+  // Marks which decision is currently selected on a change card. Both buttons
+  // are always available, so without this the default "기존 유지" is invisible
+  // and it looks like the change is already queued.
+  function paintDecisions(card) {
+    const decision = card.dataset.decision;
+    card.querySelectorAll('[data-decide]').forEach((button) => {
+      const picked = button.dataset.decide === decision;
+      button.classList.toggle('is-picked', picked);
+      button.classList.toggle('is-muted', !picked);
+      button.setAttribute('aria-pressed', String(picked));
+    });
+  }
+
   function updateProposalSummary() {
+    proposalEls.changes.querySelectorAll('.change-card').forEach(paintDecisions);
     const apply = proposalEls.changes.querySelectorAll('.change-card[data-decision="apply"]').length;
     const keep = proposalEls.changes.querySelectorAll('.change-card[data-decision="keep"]').length;
     proposalEls.summary.textContent = `적용 ${apply}건 · 유지 ${keep}건`;

@@ -120,7 +120,9 @@ button{color:inherit}
 .change-after textarea{width:100%;border:1px solid var(--line);border-radius:11px;background:#fff;padding:9px 10px;font:12px/1.6 inherit;color:#39425f;resize:vertical;outline:none}
 .change-after textarea:focus{border-color:#8e78ff;box-shadow:0 0 0 3px rgba(117,92,255,.09)}
 .change-actions{display:flex;gap:8px;margin-top:10px}
-.change-actions .is-picked{outline:2px solid #8e78ff;outline-offset:1px}
+.change-actions .is-picked{outline:2px solid #6a50ec;outline-offset:2px}
+.change-actions .is-muted{opacity:.5}
+.change-actions .is-muted:hover{opacity:1}
 .proposal-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--line)}
 .proposal-summary{font-size:12px;font-weight:850;color:#5b3df0;margin-right:auto}
 .proposal-list{display:grid;gap:8px}

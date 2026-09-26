@@ -230,6 +230,13 @@ async function chapterList() {
   return Array.isArray(curriculum.chapters) ? curriculum.chapters : [];
 }
 
+// Archive-created scenes have no chapter of their own, so they land at the end
+// of the lecture rather than at the front.
+async function defaultChapterId() {
+  const chapters = await chapterList();
+  return chapters.length ? chapters[chapters.length - 1].id : 'auto';
+}
+
 async function propose(fileNames) {
   await ensureArchive();
   const wanted = Array.isArray(fileNames) && fileNames.length ? fileNames : null;
@@ -283,7 +290,18 @@ async function propose(fileNames) {
         reason: c.reason || '',
         confidence: c.confidence || 'low',
         sourceName: c.sourceName || '',
-        ...(c.assetPath ? { assetPath: c.assetPath } : {})
+        ...(c.assetPath ? { assetPath: c.assetPath } : {}),
+        // A new_scene needs more than a sentence, so its presentation fields
+        // travel with the change instead of being dropped.
+        ...(c.action === 'new_scene'
+          ? {
+            ...(c.title ? { title: c.title } : {}),
+            ...(c.chapter ? { chapter: c.chapter } : {}),
+            ...(c.cue ? { cue: c.cue } : {}),
+            ...(c.extra ? { extra: c.extra } : {}),
+            ...(Array.isArray(c.blocks) ? { blocks: c.blocks } : {})
+          }
+          : {})
       };
     })
   };
@@ -439,17 +457,23 @@ async function applyProposal(proposalId, decisions) {
   }
 
   // 2) Build the new override state.
+  const knownChapters = new Set((await chapterList()).map((c) => c.id));
+  const fallbackChapter = await defaultChapterId();
   const touchedScenes = new Set();
   for (const change of approved) {
     if (change.action === 'new_scene') {
+      const requested = String(change.chapter || '');
       const scene = {
         id: change.sceneId,
-        chapter: change.chapter || overrides.newScenes[0]?.chapter || 'auto',
-        title: change.title || change.sceneId,
+        // Never store a chapter id the curriculum does not have: the renderer
+        // would silently file the scene under chapter 01.
+        chapter: knownChapters.has(requested) ? requested : fallbackChapter,
+        title: change.title || change.after,
         narration: change.after,
         cue: change.cue || change.after,
         extra: change.extra || `자료함에서 추가된 장면 · ${change.sourceName || ''}`.trim(),
-        origin: 'archive'
+        origin: 'archive',
+        ...(Array.isArray(change.blocks) ? { blocks: change.blocks } : {})
       };
       overrides.newScenes = overrides.newScenes.filter((s) => s.id !== scene.id);
       overrides.newScenes.push(scene);

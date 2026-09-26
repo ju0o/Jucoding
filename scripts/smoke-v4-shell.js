@@ -36,7 +36,10 @@ app.setPath('userData', path.join(sandbox, 'userData'));
 // It is asserted as a skipped check in hidden mode and reported as such, and
 // JUCODING_QA_VISIBLE=1 runs the full assertion.
 
-const VISIBLE = process.env.JUCODING_QA_VISIBLE === '1';
+// argv is checked as well as the env var because WSL does not forward
+// environment variables into Windows binaries, which is exactly the host
+// this QA runs on.
+const VISIBLE = process.env.JUCODING_QA_VISIBLE === '1' || process.argv.includes('--visible');
 
 const archive = require('../src/main/v4-archive');
 archive.registerArchiveScheme();
@@ -262,6 +265,8 @@ app.whenReady().then(async () => {
         const cards = [...document.querySelectorAll('#proposal-changes .change-card')].map((c) => ({
           id: c.dataset.change,
           decision: c.dataset.decision,
+          pickedKeep: c.querySelectorAll('[data-decide="keep"].is-picked').length,
+          pickedApply: c.querySelectorAll('[data-decide="apply"].is-picked').length,
           scene: c.querySelector('.change-scene')?.textContent || '',
           tag: c.querySelector('.change-tag')?.textContent || '',
           conf: c.querySelector('.change-conf')?.textContent || '',
@@ -285,6 +290,10 @@ app.whenReady().then(async () => {
     check(results, 'qa17_defaultsToKeep',
       preview.cards.every((c) => c.decision === 'keep') && preview.applyDisabled === true,
       { decisions: preview.cards.map((c) => c.decision), summary: preview.summary });
+    // The selected decision must be visible, not just stored in a data attribute.
+    check(results, 'qa17_selectedDecisionIsVisible',
+      preview.cards.every((c) => c.pickedKeep === 1 && c.pickedApply === 0),
+      preview.cards.map((c) => ({ keep: c.pickedKeep, apply: c.pickedApply })));
 
     mark('preview ok');
     // ------------------------------- 18. reject everything -> no change ------
@@ -372,10 +381,14 @@ app.whenReady().then(async () => {
       .flatMap((patch) => [patch.narration, patch.extra].filter(Boolean));
     const editedApplied = editedValues.some((text) => String(text).endsWith('(수정본)'));
 
+    // Which candidates the local rules pick depends on inbox readdir order, so
+    // this asserts the invariant (two distinct scenes changed, each with a real
+    // value) rather than a specific field. Per-action coverage is asserted
+    // deterministically further down.
+    const patchedFieldsOk = Object.values(sceneOverrides).every((patch) =>
+      [patch.narration, patch.extra].some((v) => typeof v === 'string' && v.trim()));
     check(results, 'qa19_approveChangesLecture',
-      overrideSceneIds.length === 2
-      && Object.values(sceneOverrides).some((p) => typeof p.narration === 'string')
-      && Object.values(sceneOverrides).some((p) => typeof p.extra === 'string'),
+      overrideSceneIds.length === 2 && patchedFieldsOk,
       { scenes: overrideSceneIds, ...sceneOverrides });
     check(results, 'qa19_manualEditUsed', editedApplied, sceneOverrides);
     check(results, 'qa19_installedContentUntouched',
@@ -433,6 +446,40 @@ app.whenReady().then(async () => {
     }
 
     mark('filing ok');
+    // ---------------------------- deterministic per-action coverage ---------
+    // A crafted .json material is used verbatim by the organizer, so the write
+    // path for each action can be asserted without depending on rule output.
+    fs.writeFileSync(path.join(archiveRoot, 'inbox', 'action-matrix.json'), JSON.stringify({
+      changes: [
+        { sceneId: 'git', action: 'replace', field: 'narration', before: '', after: 'replace 대상 문장입니다.', reason: 'qa', confidence: 'high' },
+        { sceneId: 'git', action: 'append', field: 'extra', before: '', after: 'append 대상 문장입니다.', reason: 'qa', confidence: 'high' },
+        { sceneId: 'cover', action: 'new_scene', after: '새 장면 본문입니다.', title: '자료함 신규 장면', reason: 'qa', confidence: 'high' }
+      ]
+    }), 'utf-8');
+    const matrixProposal = await archive.propose(['action-matrix.json']);
+    const matrixApply = matrixProposal.ok
+      ? await archive.applyProposal(matrixProposal.proposal.id,
+        matrixProposal.proposal.changes.map((c) => ({ id: c.id, decision: 'apply' })))
+      : { ok: false };
+    const matrixOverrides = await archive.readOverrides();
+    const gitPatch = matrixOverrides.scenes.git || {};
+    check(results, 'qa19_replaceWritesNarration',
+      gitPatch.narration === 'replace 대상 문장입니다.', gitPatch);
+    check(results, 'qa19_appendAppendsToExtra',
+      String(gitPatch.extra || '').includes('append 대상 문장입니다.'), gitPatch);
+    const newScene = matrixOverrides.newScenes.find((s) => s.id === 'cover');
+    const curriculum = JSON.parse(fs.readFileSync(path.join(root, 'src/content/v4/curriculum.json'), 'utf-8'));
+    check(results, 'qa19_newSceneRegistered',
+      Boolean(newScene)
+      && newScene.title === '자료함 신규 장면'
+      && curriculum.chapters.some((c) => c.id === newScene.chapter)
+      && newScene.origin === 'archive'
+      && matrixApply.ok === true,
+      matrixOverrides.newScenes);
+    // A second replace+append on the same field must append, never clobber.
+    check(results, 'qa19_replaceIsNotCumulative',
+      gitPatch.narration === 'replace 대상 문장입니다.', gitPatch.narration);
+
     // ------------------------------- 18b. reject-only material -> reviewed ---
     // Everything was approved above, so seed a second, unrelated material and
     // approve none of its candidates.
@@ -590,7 +637,7 @@ app.whenReady().then(async () => {
       results.instructorFullscreen = {
         ok: true,
         skipped: true,
-        reason: 'setFullScreen is a no-op on a hidden window; run with JUCODING_QA_VISIBLE=1'
+        reason: 'setFullScreen is a no-op on a hidden window; re-run with --visible'
       };
     }
     check(results, 'libraryEnlarge', library.open && library.imgOk);
