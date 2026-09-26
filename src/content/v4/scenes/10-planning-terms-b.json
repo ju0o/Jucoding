@@ -1,0 +1,9 @@
+{
+  "id": "planning-terms-b",
+  "ordinal": 10,
+  "chapter": "plan",
+  "title": "ERD · DBML · SSOT",
+  "narration": "ERD는 데이터 관계 그림, DBML은 데이터 구조를 글로 표현하고, SSOT는 최종 기준 문서입니다.",
+  "cue": "SSOT는 특히 실무에서 중요합니다. 여러 문서가 서로 다르면 “그래서 뭐가 진짜 기준이야?”가 생기기 때문입니다.",
+  "extra": "ERD=데이터 관계 그림, DBML=DB 구조를 글로 표현, SSOT=최종 기준 문서."
+}

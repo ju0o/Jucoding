@@ -1,0 +1,33 @@
+{
+  "schema": "jucoding-simulation",
+  "id": "mcp-worker",
+  "title": "아이디어 → Agent → Worker → Remotion → 영상 완성",
+  "subtitle": "판단은 Agent, 실행은 Worker가 나눠 맡습니다",
+  "sceneId": "video-auto",
+  "nodes": [
+    { "id": "idea", "label": "아이디어", "icon": "💡", "note": "콘텐츠 주제" },
+    { "id": "agent", "label": "Agent", "icon": "🤖", "note": "기획 · 대본 · 장면 설계", "emphasis": true },
+    { "id": "worker", "label": "Worker", "icon": "⚙️", "note": "정해진 작업 실행" },
+    { "id": "remotion", "label": "Remotion", "icon": "🎬", "note": "코드로 영상 제작" },
+    { "id": "video", "label": "영상 완성", "icon": "✅", "note": "최종 결과물", "emphasis": true }
+  ],
+  "edges": [
+    { "id": "e1", "from": "idea", "to": "agent" },
+    { "id": "e2", "from": "agent", "to": "worker" },
+    { "id": "e3", "from": "worker", "to": "remotion" },
+    { "id": "e4", "from": "remotion", "to": "video" }
+  ],
+  "steps": [
+    { "id": "s1", "label": "아이디어 등장", "target": "idea", "action": "show", "duration": 800, "narration": "영상 주제 아이디어가 들어옵니다." },
+    { "id": "s2", "label": "Agent 기획", "target": "agent", "action": "connect", "duration": 800, "narration": "Agent가 기획과 대본을 설계합니다." },
+    { "id": "s3", "label": "Agent 판단", "target": "agent", "action": "activate", "duration": 1000, "narration": "무엇을 만들지 판단하고 작업 목록을 냅니다." },
+    { "id": "s4", "label": "Worker 실행", "target": "worker", "action": "connect", "duration": 800, "narration": "Worker가 정해진 작업을 수행합니다." },
+    { "id": "s5", "label": "Worker 작업 중", "target": "worker", "action": "activate", "duration": 1100, "narration": "Asset 생성, 렌더링 설정처럼 정해진 일만 수행합니다." },
+    { "id": "s6", "label": "Worker 완료", "target": "worker", "action": "complete", "duration": 500, "narration": "작업 결과가 넘어옵니다." },
+    { "id": "s7", "label": "Remotion 렌더", "target": "remotion", "action": "connect", "duration": 800, "narration": "Remotion이 코드로 장면을 렌더링합니다." },
+    { "id": "s8", "label": "렌더링 중", "target": "remotion", "action": "activate", "duration": 1100, "narration": "같은 코드로 다시 실행하면 같은 영상이 나옵니다." },
+    { "id": "s9", "label": "Remotion 완료", "target": "remotion", "action": "complete", "duration": 500, "narration": "QA를 돌릴 수 있는 상태가 됐습니다." },
+    { "id": "s10", "label": "영상 완성", "target": "video", "action": "connect", "duration": 800, "narration": "QA를 통과하면 최종 영상이 나옵니다." },
+    { "id": "s11", "label": "완료 표시", "target": "video", "action": "complete", "duration": 800, "narration": "아이디어에서 영상 완성까지 이어지는 흐름입니다." }
+  ]
+}

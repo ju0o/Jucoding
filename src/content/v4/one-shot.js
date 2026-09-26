@@ -1,5 +1,16 @@
 'use strict';
 
+// JuCoding V4 lecture player.
+//
+// Separation of concerns (V4.1):
+//   DATA  — src/content/v4/curriculum.json + scenes/*.json + simulations/*.json,
+//           compiled into window.JUCODING_V4_CONTENT by scripts/build-v4-content.js.
+//           Chapter order, scene order, titles, instructor cues and simulation
+//           wiring all come from here. The Archive Update Engine only ever edits
+//           this kind of data; it never touches this file.
+//   CODE  — the SCENE_RENDERERS map below: visual markup only, one function per
+//           scene id, and no teaching copy.
+
 (() => {
   const stage = document.getElementById('stage');
   const prev = document.getElementById('prev');
@@ -9,21 +20,27 @@
   const progressBar = document.getElementById('progress-bar');
   const cue = document.getElementById('speaker-cue');
   const cueTitle = document.getElementById('cue-title');
+  const cueSummary = document.getElementById('cue-summary');
   const cueBody = document.getElementById('cue-body');
   const cueExtra = document.getElementById('cue-extra');
   const chapterDialog = document.getElementById('chapter-dialog');
   const chapterGrid = document.getElementById('chapter-grid');
   const mapDialog = document.getElementById('map-dialog');
 
-  const chapters = [
-    { id: 'why', label: '01', title: '왜 바이브코딩인가?', time: '약 25분' },
-    { id: 'agent', label: '02', title: 'AI와 Agent', time: '약 25분' },
-    { id: 'terms', label: '03', title: '기본 개발 용어', time: '약 30분' },
-    { id: 'plan', label: '04', title: '프로젝트 기획 용어', time: '약 40분' },
-    { id: 'deploy', label: '05', title: '개발서버 · 배포 · Git', time: '약 30분' },
-    { id: 'auto', label: '06', title: 'MCP · Worker · 자동화', time: '약 20분' }
-  ];
+  const CONTENT = window.JUCODING_V4_CONTENT;
+  if (!CONTENT || !Array.isArray(CONTENT.scenes) || !CONTENT.scenes.length) {
+    stage.innerHTML = '<div class="scene center"><h1 class="hero">강의 내용을 불러오지 못했습니다.</h1>'
+      + '<p class="lead">content-registry.js가 필요합니다. node scripts/build-v4-content.js 로 다시 만드세요.</p></div>';
+    return;
+  }
 
+  const chapters = CONTENT.chapters;
+  const simulations = CONTENT.simulations || {};
+  const sceneData = CONTENT.scenes;
+
+  // ---------------------------------------------------------------------------
+  // Visual layer: one renderer per scene id. No teaching copy lives here.
+  // ---------------------------------------------------------------------------
   const header = (kicker, title, sub) => `
     <div class="scene-header">
       <div>
@@ -40,12 +57,8 @@
       <figcaption><b>${title} · 클릭하면 크게 보기</b>${caption}<br><small>수업용 로컬 자료 · 인터넷 없이 표시됩니다</small></figcaption>
     </figure>`;
 
-  const scenes = [
-    {
-      chapter:'why', id:'cover', title:'오늘의 지도',
-      cue:'오늘은 용어를 외우는 시간이 아니라, AI가 실제로 일할 수 있는 공간을 어떻게 만드는지 연결해서 보는 시간입니다.',
-      extra:'오프닝 질문: “ChatGPT에게 물어보는 것과 직접 프로그램을 만드는 것은 뭐가 다를까요?”',
-      render:() => `
+  const SCENE_RENDERERS = {
+    cover: () => `
         <div class="scene center" style="position:relative">
           <span class="kicker">3시간 스터디 · 왕초보용</span>
           <h1 class="hero"><span class="grad">AI · Agent · 바이브코딩</span></h1>
@@ -53,13 +66,8 @@
           ${assetFigure('ai-agent-vibecoding.webp', 'AI · Agent · 바이브코딩 개념도', '제1장 대표 자료. AI라는 큰 범주 안에서 Agent가 목표를 향해 행동하고, 그 협업 방식이 바이브코딩임을 한 장으로 정리합니다.', true)}
           <div class="robot-hero" aria-hidden="true"></div>
           <span class="float-chip chip-ai">AI</span><span class="float-chip chip-agent">Agent</span><span class="float-chip chip-vibe">Vibe Coding</span>
-        </div>`
-    },
-    {
-      chapter:'why', id:'spaces', title:'기존 서비스는 이미 만들어진 공간',
-      cue:'YouTube는 영상 공간, Notion은 기록 공간, Excel은 데이터 공간입니다. 편리하지만 결국 남이 정해둔 방식 안에서 일합니다.',
-      extra:'여기서 “그럼 내 업무 방식에 딱 맞는 공간이 없다면?”을 질문하세요.',
-      render:() => `
+        </div>`,
+    spaces: () => `
         <div class="scene">
           ${header('왜 바이브코딩인가?', '우리는 지금까지 <span class="grad">만들어진 공간</span>을 사용했습니다.', '좋은 서비스는 이미 정해진 목적에 맞춰 아주 편리하게 만들어져 있습니다.')}
           <div class="space-row">
@@ -68,13 +76,8 @@
             <div class="space"><span class="logo excel">X</span><div><b>Excel</b><small>표 · 숫자 · 데이터 공간</small></div></div>
           </div>
           <div class="big-quote">“그런데 <span style="color:#6a50ec">내가 원하는 방식으로</span> AI와 Agent가 일할 공간은?”</div>
-        </div>`
-    },
-    {
-      chapter:'why', id:'vibe', title:'바이브코딩의 핵심',
-      cue:'바이브코딩은 “AI가 대신 코딩해주는 것”으로만 이해하면 좁습니다. 내가 원하는 문제 해결 공간을 AI와 함께 만드는 방식이라고 설명하세요.',
-      extra:'정의: AI와 대화하며 소프트웨어를 만드는 방식. 결과적으로 나만의 도구/공간을 만들 수 있습니다.',
-      render:() => `
+        </div>`,
+    vibe: () => `
         <div class="scene">
           ${header('WHY VIBE CODING', '내 일에 맞는 <span class="grad">도구와 공간</span>을 직접 만듭니다.', '처음부터 모든 코드를 직접 작성하지 않아도, 원하는 결과를 설명하고 확인하며 반복할 수 있습니다.')}
           <div class="formula">
@@ -92,13 +95,8 @@
               <div class="process-node"><div class="e">👀</div><b>사람이 확인</b><span>원하는 결과인지 확인</span></div><div class="process-arrow">→</div>
               <div class="process-node"><div class="e">🔁</div><b>수정 반복</b><span>점점 내 방식에 맞춤</span></div>
             </div>
-        </div>`
-    },
-    {
-      chapter:'agent', id:'ai-agent', title:'AI와 Agent 차이',
-      cue:'포함관계 설명보다 “행동 루프”를 먼저 보여주세요. AI Agent는 AI를 이용해 여러 단계의 일을 수행하는 시스템이라고 설명하면 됩니다.',
-      extra:'AI Agent는 AI의 한 형태/활용 구조입니다. 모든 AI가 Agent처럼 행동하는 것은 아닙니다.',
-      render:() => `
+        </div>`,
+    'ai-agent': () => `
         <div class="scene">
           ${header('AI VS AGENT', '대답하는 AI에서, <span class="grad">행동하는 Agent</span>로', '지능의 높고 낮음이 아니라 “목표를 받고 실제 행동까지 이어지는가”가 핵심입니다.')}
           <div class="compare">
@@ -121,13 +119,8 @@
               </div>
             </div>
           </div>
-        </div>`
-    },
-    {
-      chapter:'agent', id:'chat-terminal', title:'ChatGPT와 터미널 Agent',
-      cue:'“어떻게 고쳐?”라고 묻는 것과 “직접 고쳐.”라고 맡기는 차이로 설명하면 초보자가 가장 빨리 이해합니다.',
-      extra:'예시: ChatGPT는 수정 방법을 설명할 수 있고, Codex/Claude Code 같은 Agent는 실제 파일과 터미널을 다룰 수 있습니다.',
-      render:() => `
+        </div>`,
+    'chat-terminal': () => `
         <div class="scene">
           ${header('AI를 쓰는 두 가지 경험', '대화형 AI와 <span class="grad">컴퓨터에서 일하는 Agent</span>', '둘 다 유용하지만 할 수 있는 행동 범위가 다릅니다.')}
           <div class="agent-compare">
@@ -136,13 +129,8 @@
           </div>
           <div class="big-quote">ChatGPT: “<b>어떻게</b> 고쳐?” &nbsp;&nbsp; ↔ &nbsp;&nbsp; Agent: “<b>직접</b> 고쳐.”</div>
           ${assetFigure('chat-ai-vs-computer-agent.webp', '대화형 AI와 컴퓨터 Agent 비교표', '제2장 보조 자료이자 유인물. 화면 속 요금제·모델 순위는 수시로 바뀌므로 참고용으로만 보고 핵심 차이인 행동 범위에 집중합니다.', false)}
-        </div>`
-    },
-    {
-      chapter:'terms', id:'web-terms', title:'프론트엔드 · 백엔드 · API · DB',
-      cue:'네 단어를 따로 외우게 하지 말고 “보이는 곳 / 뒤에서 일하는 곳 / 서로 말 거는 방법 / 기억하는 곳” 네 문장으로 먼저 잡아주세요.',
-      extra:'이후 기술 이름은 바뀌어도 이 네 역할은 계속 남습니다.',
-      render:() => `
+        </div>`,
+    'web-terms': () => `
         <div class="scene">
           ${header('처음 만나는 개발 용어', '기본 용어 <span class="grad">쉽게 이해하기</span>', '어려운 기술 이름보다 먼저 “무슨 역할인지”를 눈으로 이해합니다.')}
           <div class="term-grid">
@@ -152,13 +140,8 @@
             <div class="term-card database"><span class="num">04</span><div class="term-art">🗄️</div><div><h3>데이터베이스</h3><strong>= 기억하는 곳</strong><p>필요한 데이터를 저장하고 다시 꺼내는 곳</p></div></div>
           </div>
           ${assetFigure('beginner-dev-terms.webp', '기초 개발 용어 정리도', '제3장 대표 자료. 프론트엔드·백엔드·API·데이터베이스와 GUI·TUI·CLI 관계를 한 장으로 복습합니다.', false)}
-        </div>`
-    },
-    {
-      chapter:'terms', id:'architecture', title:'하나의 서비스가 연결되는 구조',
-      cue:'로그인이나 게시글 작성 같은 실제 행동 하나를 예로 들어 화살표를 따라가면 됩니다.',
-      extra:'예: “게시글 저장” → 화면에서 입력 → API 요청 → 백엔드 처리 → DB 저장.',
-      render:() => `
+        </div>`,
+    architecture: () => `
         <div class="scene">
           ${header('한눈에 보는 구조', '이렇게 연결되어 <span class="grad">하나의 서비스</span>가 동작합니다.', '각 부품은 따로 외우는 것이 아니라 서로 연결되어 움직입니다.')}
           <div class="arch">
@@ -168,13 +151,8 @@
             <div class="arch-node"><div class="bubble-icon">🗄️</div><b>데이터베이스</b><span>데이터 저장</span></div>
           </div>
           <div class="big-quote" style="font-size:25px">사용자 행동 하나도 사실은 <span style="color:#684fe8">여러 부품이 대화하는 과정</span>입니다.</div>
-        </div>`
-    },
-    {
-      chapter:'terms', id:'ui-terms', title:'GUI · TUI · CLI',
-      cue:'같은 프로그램도 화면을 어떻게 조작하느냐에 따라 표현 방식이 달라질 수 있다는 정도면 충분합니다.',
-      extra:'GUI=그래픽 화면, TUI=터미널 안의 UI, CLI=명령어 입력 방식.',
-      render:() => `
+        </div>`,
+    'ui-terms': () => `
         <div class="scene">
           ${header('화면과 조작 방식', 'GUI · TUI · CLI를 <span class="grad">한 번에</span>', '이 용어는 “어떤 방식으로 프로그램을 조작하는가?”를 설명합니다.')}
           <div class="mini-terms">
@@ -182,13 +160,8 @@
             <div class="mini-term"><b>TUI</b><span>= 터미널 안에서 조작하는 화면</span><div class="terminal-mini">AGENT 1  WORKING<br>AGENT 2  IDLE<br>QA       PASS</div></div>
             <div class="mini-term"><b>CLI</b><span>= 명령어를 입력하는 방식</span><div class="terminal-mini">$ git status<br>$ npm run dev<br>$ codex</div></div>
           </div>
-        </div>`
-    },
-    {
-      chapter:'plan', id:'planning-terms-a', title:'PRD · WBS · Wireframe · Prototype',
-      cue:'각 영어 단어보다 쉬운 번역을 먼저 말하세요. “기획서, 할 일 목록, 화면 스케치, 눌러보는 시제품”입니다.',
-      extra:'이번 강의에서는 작성법을 깊게 배우는 것이 아니라 언제 쓰는지 이해하는 것이 목표입니다.',
-      render:() => `
+        </div>`,
+    'planning-terms-a': () => `
         <div class="scene">
           ${header('프로젝트 만들기 전에', '어려운 단어를 <span class="grad">쉬운 말로</span> 바꾸기', '좋은 프로젝트는 코딩보다 먼저 생각을 정리하는 데서 시작합니다.')}
           <div class="docs-grid">
@@ -198,13 +171,8 @@
             <div class="doc-card"><span class="tag">04</span><h3>Prototype</h3><strong>= 눌러보는 시제품</strong><p>완성 전 실제 사용 흐름을 미리 확인하는 모형</p></div>
           </div>
           ${assetFigure('project-planning-terms.webp', '프로젝트 기획 용어 정리도', '제4장 대표 자료. PRD·WBS·Wireframe·Prototype·ERD·DBML·SSOT가 프로젝트의 어느 단계에서 쓰이는지 한 장으로 정리합니다.', false)}
-        </div>`
-    },
-    {
-      chapter:'plan', id:'planning-terms-b', title:'ERD · DBML · SSOT',
-      cue:'SSOT는 특히 실무에서 중요합니다. 여러 문서가 서로 다르면 “그래서 뭐가 진짜 기준이야?”가 생기기 때문입니다.',
-      extra:'ERD=데이터 관계 그림, DBML=DB 구조를 글로 표현, SSOT=최종 기준 문서.',
-      render:() => `
+        </div>`,
+    'planning-terms-b': () => `
         <div class="scene">
           ${header('데이터와 기준 정리', 'ERD · DBML · <span class="grad">SSOT</span>', '데이터를 어떻게 기억할지, 그리고 프로젝트의 최종 기준이 무엇인지 정합니다.')}
           <div class="grid three">
@@ -213,13 +181,8 @@
             <div class="card soft-purple"><span class="num">07</span><div class="icon">📌</div><h3>SSOT = 최종 기준 문서</h3><p>의견이 다를 때 “이 문서가 최종 기준”이라고 정한 하나의 기준점입니다.</p></div>
           </div>
           <div class="big-quote" style="font-size:23px">A 문서엔 로그인 있음 / B 문서엔 로그인 없음 → “<b>그래서 뭐가 맞아?</b>” → SSOT가 필요</div>
-        </div>`
-    },
-    {
-      chapter:'plan', id:'project-flow', title:'프로젝트가 만들어지는 순서',
-      cue:'이 순서가 절대 법칙은 아니지만, 초보자가 전체 흐름을 이해하기엔 좋은 지도라고 설명하세요.',
-      extra:'아이디어 → 기획 → 화면 → 데이터 → 구현. 필요하면 앞뒤로 되돌아갑니다.',
-      render:() => `
+        </div>`,
+    'project-flow': () => `
         <div class="scene">
           ${header('PROJECT FLOW', '아이디어가 <span class="grad">실제 프로그램</span>이 되는 과정', '완벽하게 한 번에 만드는 것이 아니라 작은 단계를 반복합니다.')}
           <div class="process">
@@ -229,13 +192,8 @@
             <div class="process-node"><div class="e">🗄️</div><b>데이터</b><span>ERD · DBML</span></div><div class="process-arrow">→</div>
             <div class="process-node"><div class="e">💻</div><b>구현</b><span>AI와 기능 제작</span></div>
           </div>
-        </div>`
-    },
-    {
-      chapter:'plan', id:'project-form', title:'내 첫 프로젝트 정리',
-      cue:'참가자 한두 명에게 실제로 입력해보게 해도 좋습니다. 답이 완벽하지 않아도 프로젝트 시작점이 만들어지는 경험이 중요합니다.',
-      extra:'이 폼은 강의 중 예시용입니다. 나중에 실제 PRD 생성기로 확장할 수 있습니다.',
-      render:() => `
+        </div>`,
+    'project-form': () => `
         <div class="scene">
           ${header('간단 실습', '내 첫 프로젝트를 <span class="grad">3문장으로</span> 정리하기', '처음부터 완벽한 기획서가 필요하지 않습니다.')}
           <div class="form-card">
@@ -247,26 +205,16 @@
             </div>
             <div class="output-card"><h3>📝 프로젝트 초안</h3><pre id="project-plan-output">왼쪽에 3가지만 적으면\n여기에 간단한 프로젝트 초안이 만들어집니다.</pre></div>
           </div>
-        </div>`
-    },
-    {
-      chapter:'deploy', id:'dev-deploy', title:'개발서버와 배포',
-      cue:'개발서버는 “내 작업실”, 배포는 “다른 사람도 들어올 수 있는 공간”이라는 비유로 충분합니다.',
-      extra:'localhost 주소는 내 컴퓨터 안에서만 보이는 경우가 많고, 배포 후 공개 URL이 생깁니다.',
-      render:() => `
+        </div>`,
+    'dev-deploy': () => `
         <div class="scene">
           ${header('실행되는 장소', '개발서버는 내 작업실, <span class="grad">배포는 세상에 공개</span>', '만든 프로그램을 어디서 실행하고 누구에게 보여줄지 이해합니다.')}
           <div class="deploy-grid">
             <div class="deploy-card"><h3>🏠 개발서버 = 내 작업실</h3><p>내 컴퓨터에서 코드를 수정하고 바로 확인하는 개발 중 공간입니다.</p><div class="deploy-visual"><div class="v">💻</div><span>→</span><div class="v" style="font-size:17px;font-weight:900">localhost<br><small>내 컴퓨터</small></div></div></div>
             <div class="deploy-card"><h3>🌍 배포 = 다른 사람도 쓰는 공간</h3><p>인터넷 서버에 올려 다른 사람이 URL로 접속할 수 있게 합니다.</p><div class="deploy-visual"><div class="v">💻</div><span>→</span><div class="v">☁️</div><span>→</span><div class="v">👥</div></div></div>
           </div>
-        </div>`
-    },
-    {
-      chapter:'deploy', id:'git', title:'Git과 GitHub',
-      cue:'GitHub=Git이라고 생각하는 초보자가 많습니다. Git은 변경 기록 시스템, GitHub는 그 기록을 온라인에서 보관/공유하는 서비스라고 분리하세요.',
-      extra:'“AI가 코드를 망치면 돌아갈 수 있게 기록을 남긴다”는 설명도 실용적입니다.',
-      render:() => `
+        </div>`,
+    git: () => `
         <div class="scene">
           ${header('기록과 공유', 'Git과 GitHub는 <span class="grad">같은 것이 아닙니다.</span>', '코드를 안전하게 기록하고, 온라인에서 보관하고, 다른 사람과 공유합니다.')}
           <div class="git-compare">
@@ -274,13 +222,8 @@
             <div class="git-card" style="background:linear-gradient(180deg,#f1f3f8,#fff)"><div class="git-logo">🐙</div><h3>GitHub</h3><strong>= 온라인 저장소 · 협업 공간</strong><p>Git으로 기록한 프로젝트를 인터넷에 올려 보관하고 공유합니다.</p></div>
           </div>
           <div class="process"><div class="process-node"><div class="e">📄</div><b>파일 수정</b><span>오늘 작업</span></div><div class="process-arrow">→</div><div class="process-node"><div class="e">📸</div><b>Git 기록</b><span>Commit</span></div><div class="process-arrow">→</div><div class="process-node"><div class="e">☁️</div><b>GitHub</b><span>Push · 공유</span></div></div>
-        </div>`
-    },
-    {
-      chapter:'deploy', id:'program-choice', title:'나는 어떤 프로그램을 만들까?',
-      cue:'모든 프로젝트가 웹사이트일 필요는 없습니다. 사용자와 사용 장소에 따라 웹, PC, 모바일, CLI/TUI 등을 고르면 됩니다.',
-      extra:'초보 프로젝트는 배포가 쉬운 웹부터 시작하기 편하지만 절대 규칙은 아닙니다.',
-      render:() => `
+        </div>`,
+    'program-choice': () => `
         <div class="scene">
           ${header('PROGRAM TYPE', '어디에서 사용할지에 따라 <span class="grad">형태가 달라집니다.</span>', '기술부터 고르는 것이 아니라 “누가 어디서 쓰는가?”부터 생각합니다.')}
           <div class="grid four">
@@ -289,13 +232,8 @@
             <div class="card soft-green"><div class="icon">📱</div><h3>모바일 앱</h3><p>휴대폰 중심 사용 경험. 카메라·센서 활용 가능.</p></div>
             <div class="card soft-orange"><div class="icon">⌨️</div><h3>CLI / TUI</h3><p>터미널 중심. 빠른 자동화와 개발 도구에 적합.</p></div>
           </div>
-        </div>`
-    },
-    {
-      chapter:'auto', id:'mcp', title:'MCP란?',
-      cue:'MCP를 “자동화 기능”이라고 설명하지 말고, AI가 외부 도구를 사용할 수 있게 연결하는 공통 방식이라고 설명하세요.',
-      extra:'브라우저, 파일, DB, 디자인 도구 등 다양한 외부 기능을 연결하는 표준화된 통로라는 비유가 좋습니다.',
-      render:() => `
+        </div>`,
+    mcp: () => `
         <div class="scene">
           ${header('AI + TOOLS', 'MCP = AI가 다른 도구를 <span class="grad">사용하게 연결하는 방식</span>', 'Agent가 말만 하는 것을 넘어 브라우저, 파일, DB, 디자인 도구 등을 사용하도록 연결할 수 있습니다.')}
           <div class="mcp-center">
@@ -303,13 +241,8 @@
             <div class="mcp-card mcp-hub"><div class="mcp-core">MCP</div><span class="tool-orbit tool-1">🌐 브라우저</span><span class="tool-orbit tool-2">📁 파일</span><span class="tool-orbit tool-3">🎨 디자인</span><span class="tool-orbit tool-4">🗄️ DB</span></div>
           </div>
           ${assetFigure('automation-deploy-mcp.webp', '배포 · MCP · Agent · Worker 정리도', '제6장 대표 자료. 배포 흐름과 MCP 연결, Agent의 판단과 Worker의 실행 분담을 한 장으로 정리합니다.', false)}
-        </div>`
-    },
-    {
-      chapter:'auto', id:'video-auto', title:'영상 자동화',
-      cue:'여기서 본인이 만든 Claude + Remotion 영상 사례를 보여주면 좋습니다. Agent는 판단, Worker는 특정 일을 수행하는 역할로 단순화하세요.',
-      extra:'예시 흐름: 아이디어 → 기획/대본 Agent → Worker → Remotion → QA → 영상 완성.',
-      render:() => `
+        </div>`,
+    'video-auto': () => `
         <div class="scene">
           ${header('실전 예시 ①', '영상 제작을 <span class="grad">작업 흐름</span>으로 만들기', '한 번의 마법 버튼보다 역할을 나눠 연결하면 자동화가 이해하기 쉽습니다.')}
           <div class="workflow">
@@ -320,13 +253,8 @@
             <div class="work-node"><div class="we">🔎</div><b>QA</b><span>문제 확인 · 수정</span></div><span class="work-arrow">→</span>
             <div class="work-node"><div class="we">✅</div><b>완성</b><span>최종 영상</span></div>
           </div>
-        </div>`
-    },
-    {
-      chapter:'auto', id:'sns-auto', title:'SNS 자동화',
-      cue:'SNS 자동화는 플랫폼 정책과 인증 방식이 중요합니다. “Agent가 알아서 무조건 게시”가 아니라 승인/권한/공식 API를 강조하세요.',
-      extra:'실제 운영에서는 초안 생성 → 사람 승인 → 공식 API 게시 → 결과 확인이 안전한 기본 구조입니다.',
-      render:() => `
+        </div>`,
+    'sns-auto': () => `
         <div class="scene">
           ${header('실전 예시 ②', 'SNS도 <span class="grad">Agent + Worker</span>로 연결하기', '반복 작업을 줄이되, 게시 승인과 플랫폼 정책은 사람이 통제합니다.')}
           <div class="workflow">
@@ -337,13 +265,8 @@
             <div class="work-node"><div class="we">📊</div><b>결과 확인</b><span>조회 · 반응 기록</span></div>
           </div>
           <div class="big-quote" style="font-size:22px">자동화의 핵심은 “사람을 없애기”가 아니라 <span style="color:#674fe9">반복을 줄이고 통제 지점을 남기는 것</span></div>
-        </div>`
-    },
-    {
-      chapter:'auto', id:'automation-form', title:'내 자동화 아이디어',
-      cue:'마지막에는 참가자가 자기 반복 업무 하나를 떠올리게 하세요. 기술 이름보다 “입력 → 일 → 결과” 세 칸이면 충분합니다.',
-      extra:'예: 수기 재고 사진 → AI 정리 → 엑셀/DB 저장.',
-      render:() => `
+        </div>`,
+    'automation-form': () => `
         <div class="scene">
           ${header('마무리 실습', '내가 반복하는 일 하나를 <span class="grad">자동화 흐름</span>으로 바꾸기', '입력 · 처리 · 결과 세 가지만 정리해도 첫 자동화 설계가 됩니다.')}
           <div class="form-card">
@@ -355,13 +278,8 @@
             </div>
             <div class="output-card"><h3>⚡ 자동화 흐름</h3><pre id="auto-output">반복 업무를 3단계로 적어보세요.\n\n입력 → Agent/Worker → 결과</pre></div>
           </div>
-        </div>`
-    },
-    {
-      chapter:'auto', id:'safety', title:'안전 경계',
-      cue:'이 장은 장식이 아니라 실제 수업입니다. 화면 안 실험과 화면 밖 실제 영향을 구분하고, 영향이 큰 행동은 사람이 직접 확인한다는 원칙을 남겨주세요.',
-      extra:'핵심 문장: 내 화면 안의 실험은 보통 위험이 낮고, 화면 밖의 실제 서비스·사람에게 영향을 주는 행동은 더 강한 확인이 필요하다.',
-      render:() => `
+        </div>`,
+    safety: () => `
         <div class="scene">
           ${header('SAFETY BOUNDARY', '화면 밖으로 나가면 <span class="grad">더 강한 확인</span>이 필요합니다.', '화면 안의 실험이 항상 안전한 것은 아닙니다. 어디까지가 낮은 위험이고 어디부터 확인이 필요한지 경계를 그어봅니다.')}
           ${assetFigure('safety-boundary.webp', '안전 경계 정리도', '마무리 안전 수업의 핵심 자료. 클릭해서 크게 띄우고 한 장씩 짚으며 설명합니다.', true)}
@@ -370,13 +288,8 @@
             <div class="risk-card high"><h3>🔴 강한 확인이 필요한 쪽 · 화면 밖</h3><ul><li>실제 결제 API 호출</li><li>운영 데이터베이스 쓰기</li><li>공개·SNS 게시</li><li>외부 계정 설정 변경</li><li>다른 사람·서비스에 영향을 주는 행동</li></ul></div>
           </div>
           <div class="big-quote" style="font-size:20px">내 화면 안의 실험은 보통 위험이 낮고, 화면 밖의 실제 서비스·사람에게 영향을 주는 행동은 <span style="color:#674fe9">더 강한 확인</span>이 필요하다.</div>
-        </div>`
-    },
-    {
-      chapter:'auto', id:'summary', title:'오늘의 전체 연결',
-      cue:'용어를 얼마나 외웠는지가 아니라 “각 단어가 어디에 쓰이는지” 설명할 수 있으면 성공이라고 마무리하세요.',
-      extra:'다음 단계는 각자 작은 프로젝트 하나를 골라 실제로 AI/Agent와 만들어보는 것입니다.',
-      render:() => `
+        </div>`,
+    summary: () => `
         <div class="scene">
           ${header('WRAP UP', '오늘 배운 것은 사실 <span class="grad">하나의 흐름</span>입니다.', 'AI를 이해하고, 프로젝트를 기획하고, 프로그램을 만들고, Agent가 일할 수 있는 공간으로 확장합니다.')}
           <div class="summary-grid">
@@ -389,19 +302,174 @@
           </div>
           <div class="big-quote" style="text-align:center">다음은 “아는 것”보다 <span style="color:#674fe9">직접 하나 만들어보는 것</span>입니다.</div>
         </div>`
+  };
+
+  // Data order wins; the renderer map only supplies markup. A scene id with no
+  // renderer is reported instead of silently rendering an empty slide.
+  const missingRenderers = sceneData.filter((scene) => typeof SCENE_RENDERERS[scene.id] !== 'function').map((s) => s.id);
+  if (missingRenderers.length) {
+    console.error('[JuCoding V4] scenes without a renderer:', missingRenderers.join(', '));
+  }
+  const scenes = sceneData
+    .filter((scene) => typeof SCENE_RENDERERS[scene.id] === 'function')
+    .map((scene) => ({ ...scene, render: SCENE_RENDERERS[scene.id] }));
+
+  // ---------------------------------------------------------------------------
+  // Approved Archive overrides.
+  //
+  // These come from the user's Archive and are the ONLY thing that can change
+  // lecture text at runtime. The installed app is never written to, so a fresh
+  // install or an uninstalled copy still behaves identically.
+  // ---------------------------------------------------------------------------
+  const escapeHtml = (text) => String(text == null ? '' : text)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+  // A scene created entirely from Archive material renders from a small block
+  // vocabulary rather than from a hand-written renderer.
+  const renderDataScene = (scene) => {
+    const blocks = Array.isArray(scene.blocks) ? scene.blocks : [];
+    const body = blocks.map((block) => {
+      const type = block.type || 'lead';
+      if (type === 'quote') return `<div class="big-quote">${escapeHtml(block.text || '')}</div>`;
+      if (type === 'cards') {
+        const items = (block.items || []).map((item) => `
+          <div class="card soft-purple">
+            <h3>${escapeHtml(item.title || '')}</h3>
+            <p>${escapeHtml(item.text || '')}</p>
+          </div>`).join('');
+        return `<div class="grid ${(block.items || []).length >= 4 ? 'four' : 'three'}">${items}</div>`;
+      }
+      if (type === 'list') {
+        return `<div class="risk-grid"><div class="risk-card low"><h3>${escapeHtml(block.title || '핵심 내용')}</h3><ul>${
+          (block.items || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('')
+        }</ul></div></div>`;
+      }
+      return `<p class="lead">${escapeHtml(block.text || '')}</p>`;
+    }).join('');
+    return `
+      <div class="scene">
+        ${header(scene.kicker || 'ARCHIVE MATERIAL', escapeHtml(scene.title || ''), scene.sub || '자료함에서 추가된 장면입니다.')}
+        ${body || `<p class="lead">${escapeHtml(scene.narration || '')}</p>`}
+      </div>`;
+  };
+
+  const archiveAssetFigure = (scene) => {
+    const asset = scene.archiveAsset;
+    if (!asset || !asset.archivePath) return '';
+    const src = window.vibeCodingApp && typeof window.vibeCodingApp.archiveUrl === 'function'
+      ? window.vibeCodingApp.archiveUrl(asset.archivePath)
+      : '';
+    if (!src) return '';
+    return `
+      <figure class="v4-asset-figure v4-asset-hero">
+        <img src="${escapeHtml(src)}" alt="${escapeHtml(asset.title || '자료함 자료')}"
+             data-asset-full="${escapeHtml(src)}" data-asset-title="${escapeHtml(asset.title || '자료함 자료')}"
+             data-asset-cap="${escapeHtml(asset.caption || '')}">
+        <figcaption><b>${escapeHtml(asset.title || '자료함 자료')} · 클릭하면 크게 보기</b>${escapeHtml(asset.caption || '')}<br><small>Archive 자료함 자료 · 인터넷 없이 표시됩니다</small></figcaption>
+      </figure>`;
+  };
+
+  let appliedOverrideCount = 0;
+
+  function applyOverrides(overrides) {
+    if (!overrides) return 0;
+    const sceneOverrides = overrides.scenes || {};
+    const assets = overrides.assets || {};
+    const newScenes = Array.isArray(overrides.newScenes) ? overrides.newScenes : [];
+    let count = 0;
+
+    for (const scene of scenes) {
+      const patch = sceneOverrides[scene.id];
+      if (patch) {
+        for (const field of ['title', 'narration', 'cue', 'extra']) {
+          if (typeof patch[field] === 'string' && patch[field].trim()) {
+            scene[field] = patch[field];
+            count += 1;
+          }
+        }
+      }
+      const asset = assets[scene.id];
+      if (asset && asset.archivePath) {
+        scene.archiveAsset = asset;
+        count += 1;
+      }
     }
-  ];
+
+    for (const extra of newScenes) {
+      if (!extra || !extra.id) continue;
+      if (scenes.some((scene) => scene.id === extra.id)) continue;
+      scenes.push({
+        ...extra,
+        chapter: extra.chapter || chapters[chapters.length - 1].id,
+        origin: 'archive',
+        render: () => renderDataScene(extra)
+      });
+      count += 1;
+    }
+    return count;
+  }
+
+  async function loadOverrides() {
+    const bridge = window.vibeCodingApp;
+    if (!bridge || typeof bridge.getLectureOverrides !== 'function') return;
+    try {
+      const result = await bridge.getLectureOverrides();
+      if (!result || !result.ok || !result.overrides) return;
+      appliedOverrideCount = applyOverrides(result.overrides);
+      if (appliedOverrideCount) {
+        const notice = document.getElementById('archive-notice');
+        if (notice) {
+          notice.textContent = `자료함 적용 내용 ${appliedOverrideCount}건이 반영되어 있습니다.`;
+          notice.hidden = false;
+        }
+        renderScene();
+      }
+    } catch { /* lecture stays on the shipped content when the bridge is absent */ }
+  }
 
   let index = 0;
   let cueOpen = false;
+  let simView = null;
 
   function getChapter(id) {
     return chapters.find((chapter) => chapter.id === id) || chapters[0];
   }
 
+  function sceneSimulations(scene) {
+    return (scene.simulations || [])
+      .map((id) => simulations[id])
+      .filter(Boolean);
+  }
+
+  // Staggered entrance for the sections of a scene. `--i` is consumed by
+  // .scene > * in one-shot.css; prefers-reduced-motion disables it entirely.
+  function applyStagger(root) {
+    const kids = Array.from(root.children).slice(0, 8);
+    kids.forEach((kid, i) => {
+      kid.style.setProperty('--i', String(i));
+    });
+  }
+
+  function closeSimulation() {
+    if (simView) {
+      simView.destroy();
+      simView = null;
+    }
+  }
+
   function renderScene() {
+    closeSimulation();
     const scene = scenes[index];
     stage.innerHTML = scene.render();
+    const sceneEl = stage.querySelector('.scene');
+    // An Archive image approved for this scene is appended here rather than
+    // baked into the renderer, so the renderer stays content-free.
+    if (sceneEl && scene.archiveAsset) {
+      sceneEl.insertAdjacentHTML('beforeend', archiveAssetFigure(scene));
+    }
+    applyStagger(sceneEl || stage);
+
     const chapter = getChapter(scene.chapter);
     chapterLabel.textContent = `${chapter.label} · ${chapter.title}`;
     sceneCounter.textContent = `${index + 1} / ${scenes.length}`;
@@ -411,6 +479,31 @@
     next.textContent = index === scenes.length - 1 ? '완료 ✓' : '다음 →';
     updateCue(false);
     attachSceneInteractions(scene.id);
+    mountSimulationEntry(scene, sceneEl);
+  }
+
+  function mountSimulationEntry(scene, sceneEl) {
+    const available = sceneSimulations(scene);
+    if (!available.length || !sceneEl) return;
+    const chapter = getChapter(scene.chapter);
+    const view = new window.JuCodingSimulation.SimulationView({
+      container: stage,
+      scene: { ...scene, chapterLabel: `${chapter.label} · ${chapter.title}` },
+      simulations: available,
+      staticLayer: sceneEl,
+      onState: () => {}
+    });
+    view.build();
+    sceneEl.insertAdjacentHTML('beforeend', view.entryMarkup());
+    sceneEl.querySelectorAll('[data-sim]').forEach((button) => {
+      button.addEventListener('click', () => view.open(button.dataset.sim));
+    });
+    simView = view;
+    if (deepLinkSim) {
+      const wanted = deepLinkSim;
+      deepLinkSim = '';
+      if (available.some((s) => s.id === wanted)) view.open(wanted);
+    }
   }
 
   function updateCue(forceToggle) {
@@ -419,6 +512,8 @@
     cue.classList.toggle('open', cueOpen);
     cue.setAttribute('aria-hidden', String(!cueOpen));
     cueTitle.textContent = scene.title;
+    cueSummary.textContent = scene.narration || '';
+    cueSummary.hidden = !scene.narration;
     cueBody.textContent = scene.cue;
     cueExtra.textContent = scene.extra || '';
   }
@@ -479,10 +574,18 @@
     button.addEventListener('click', () => document.getElementById(button.dataset.close)?.close());
   });
 
+  // Keyboard arbitration.
+  // While a simulation is open the view owns Space / → / ← / R / Esc and the
+  // lecture's own next/prev keys stand down, so the two never fight over the
+  // same key. Outside a simulation nothing changes.
   document.addEventListener('keydown', (event) => {
     const tag = document.activeElement?.tagName;
     const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
     if (typing) return;
+    if (simView && simView.isOpen && simView.handleKey(event)) {
+      event.preventDefault();
+      return;
+    }
     if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') {
       event.preventDefault();
       if (index < scenes.length - 1) gotoScene(index + 1);
@@ -500,15 +603,27 @@
     }
   });
 
+  // Connector geometry is measured from the DOM, so a resize needs a relayout.
+  let relayoutTimer = null;
+  window.addEventListener('resize', () => {
+    if (relayoutTimer) clearTimeout(relayoutTimer);
+    relayoutTimer = setTimeout(() => simView?.relayout(), 120);
+  });
+
   buildChapterGrid();
 
-  // Deep link: one-shot.html#scene=<id> (used by V4 home sections)
-  const initialHash = (window.location.hash || '').replace(/^#scene=/, '');
-  if (initialHash) {
-    const target = scenes.findIndex((scene) => scene.id === initialHash);
+  // Deep link: one-shot.html#scene=<id>  ·  one-shot.html#scene=<id>&sim=<simulationId>
+  const params = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+  const initialScene = params.get('scene');
+  let deepLinkSim = params.get('sim') || '';
+  if (initialScene) {
+    const target = scenes.findIndex((scene) => scene.id === initialScene);
     if (target >= 0) index = target;
   }
   renderScene();
+  // Renders immediately with the shipped content, then re-renders once the
+  // approved Archive overrides arrive, so a missing bridge is never a blank slide.
+  loadOverrides();
 
   const homeButton = document.getElementById('btn-home');
   homeButton?.addEventListener('click', () => {
@@ -530,4 +645,18 @@
     if (dialogCap) dialogCap.textContent = img.dataset.assetCap || '';
     if (!assetDialog.open) assetDialog.showModal();
   });
+
+  // Exposed for the V4 smoke test so simulation playback can be asserted
+  // without reaching into private closure state.
+  window.__jucodingV4 = {
+    get sceneIndex() { return index; },
+    get sceneCount() { return scenes.length; },
+    get simulationOpen() { return Boolean(simView && simView.isOpen); },
+    get simulationState() { return simView?.engine?.snapshot() || null; },
+    get appliedOverrideCount() { return appliedOverrideCount; },
+    get scenes() { return scenes.map((s) => ({ id: s.id, title: s.title, narration: s.narration, origin: s.origin || 'shipped' })); },
+    openSimulation: (id) => simView?.open(id),
+    closeSimulation: () => simView?.close(),
+    gotoScene
+  };
 })();

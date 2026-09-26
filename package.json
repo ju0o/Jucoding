@@ -1,6 +1,6 @@
 {
   "name": "vibe-coding-basic-class-app",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "description": "AI·Agent·바이브코딩을 시각적으로 가르치는 JuCoding Electron 강의 스튜디오",
   "author": "ju0o",
   "repository": {
@@ -25,11 +25,14 @@
     "export:review3": "electron scripts/export-mobile-review-pdf.js docs/reviews/session-03-mobile-review.html release/3강-모바일-검토자료.pdf",
     "check": "node scripts/check-v4.js",
     "check:legacy": "node scripts/check.js",
+    "content:build": "node scripts/build-v4-content.js",
+    "content:check": "node scripts/build-v4-content.js --check",
     "lint": "npm run check",
     "smoke:app": "electron scripts/smoke-electron-app.js",
     "smoke:tracks": "electron scripts/smoke-track-lessons.js",
     "smoke:v4": "electron scripts/smoke-v4-lecture.js",
     "smoke:v4:shell": "electron scripts/smoke-v4-shell.js",
+    "capture:v41": "electron scripts/capture-v41-screens.js --visible",
     "release:verify": "node scripts/verify-release-version.js",
     "release:build": "npm run check && npm run smoke:v4 && npm run smoke:v4:shell && npm run dist:installer",
     "release:legacy": "npm run build:v3 && npm run capture:v3-fallbacks && npm run build:slides && npm run audit:curriculum && npm run check:legacy && npm run smoke:tracks && npm run qa:print && npm run dist:portable",
@@ -55,8 +58,9 @@
     },
     "files": [
       "package.json",
-      "src/main/v4-main.js",
-      "src/preload/preload.js",
+      "src/main/**/*",
+      "!src/main/main.js",
+      "src/preload/**/*",
       "src/renderer/v4/**/*",
       "src/content/v4/**/*",
       "src/assets/**/*"

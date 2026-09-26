@@ -1,0 +1,33 @@
+{
+  "schema": "jucoding-simulation",
+  "id": "sns-automation",
+  "title": "자료 → SNS Worker → 사람 승인 → 게시",
+  "subtitle": "자동화의 핵심은 사람이 통제할 지점을 남기는 것",
+  "sceneId": "sns-auto",
+  "nodes": [
+    { "id": "source", "label": "자료 · 콘텐츠", "icon": "📝", "note": "원본 자료" },
+    { "id": "worker", "label": "SNS Worker", "icon": "⚙️", "note": "문구 · 이미지 정리" },
+    { "id": "approval", "label": "사람 승인", "icon": "👀", "note": "게시 전 반드시 확인", "emphasis": true },
+    { "id": "publish", "label": "공식 API 게시", "icon": "📤", "note": "인증된 통로만 사용" },
+    { "id": "result", "label": "결과 확인", "icon": "📊", "note": "조회 · 반응 기록" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "source", "to": "worker" },
+    { "id": "e2", "from": "worker", "to": "approval" },
+    { "id": "e3", "from": "approval", "to": "publish" },
+    { "id": "e4", "from": "publish", "to": "result" }
+  ],
+  "steps": [
+    { "id": "s1", "label": "자료 등장", "target": "source", "action": "show", "duration": 800, "narration": "게시할 원본 자료가 들어옵니다." },
+    { "id": "s2", "label": "Worker 정리", "target": "worker", "action": "connect", "duration": 800, "narration": "SNS Worker가 문구와 이미지를 정리합니다." },
+    { "id": "s3", "label": "초안 생성", "target": "worker", "action": "activate", "duration": 1000, "narration": "게시 가능한 초안을 만듭니다." },
+    { "id": "s4", "label": "승인 요청", "target": "approval", "action": "connect", "duration": 800, "narration": "이제 사람이 확인할 차례입니다." },
+    { "id": "s5", "label": "사람 확인", "target": "approval", "action": "activate", "duration": 1200, "narration": "문구와 이미지를 사람이 직접 확인하고 승인합니다.", "emphasis": true },
+    { "id": "s6", "label": "승인 완료", "target": "approval", "action": "complete", "duration": 600, "narration": "승인된 초안만 다음으로 넘어갑니다." },
+    { "id": "s7", "label": "API 게시", "target": "publish", "action": "connect", "duration": 800, "narration": "공식 API로만 게시합니다." },
+    { "id": "s8", "label": "업로드 실행", "target": "publish", "action": "activate", "duration": 1000, "narration": "Worker가 업로드를 실행합니다." },
+    { "id": "s9", "label": "게시 완료", "target": "publish", "action": "complete", "duration": 500, "narration": "게시가 끝났습니다." },
+    { "id": "s10", "label": "결과 확인", "target": "result", "action": "connect", "duration": 800, "narration": "조회와 반응을 기록합니다." },
+    { "id": "s11", "label": "완료 표시", "target": "result", "action": "complete", "duration": 800, "narration": "자동화는 반복을 줄이고 통제 지점은 남깁니다." }
+  ]
+}

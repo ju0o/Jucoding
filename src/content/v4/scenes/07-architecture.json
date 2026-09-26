@@ -1,0 +1,12 @@
+{
+  "id": "architecture",
+  "ordinal": 7,
+  "chapter": "terms",
+  "title": "하나의 서비스가 연결되는 구조",
+  "narration": "사용자 행동 하나는 프론트엔드에서 API로 요청하고, 백엔드가 처리해 데이터베이스에 저장하는 과정입니다.",
+  "cue": "로그인이나 게시글 작성 같은 실제 행동 하나를 예로 들어 화살표를 따라가면 됩니다.",
+  "extra": "예: “게시글 저장” → 화면에서 입력 → API 요청 → 백엔드 처리 → DB 저장.",
+  "simulations": [
+    "frontend-api-backend"
+  ]
+}

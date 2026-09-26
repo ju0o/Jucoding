@@ -2,7 +2,69 @@
 
 이 프로젝트는 [Semantic Versioning](https://semver.org/)을 사용합니다.
 
-## [Unreleased] - 2026-07-02
+## [Unreleased]
+
+### 추가 (V4.1 — 시뮬레이션 + Archive, `feat/v4-1-simulation-archive`)
+
+- **인터랙티브 시뮬레이션 강의** — 주요 개념 장면 6곳에 `시뮬레이션 시작` 추가.
+  시작/일시정지/계속/다음 단계/처음부터 + 속도 0.75x·1x·1.5x, 키보드는
+  `Space`(시작/일시정지) `→`(다음 단계) `R`(처음부터) `Esc`(정적 화면).
+  시뮬레이션이 열려 있는 동안에는 강의 전체 다음/이전 키가 양보하므로 키 충돌이
+  없습니다. `←` 로 시뮬레이션을 빠져나오면 기존 키 동작이 그대로 복귀합니다.
+- **시뮬레이션 7종** — 질문→AI→답변, 목표→Agent→도구→확인→반복→완료,
+  ChatGPT vs 컴퓨터 Agent, Frontend→API→Backend→Database,
+  아이디어→Agent→Worker→Remotion→영상 완성, 자료→SNS Worker→사람 승인→게시,
+  Local Test→External Action 감지→보류→사람 승인→실제 실행.
+- **데이터 기반 시뮬레이션 엔진** — `show / activate / connect / complete` 단계와
+  `nodes`/`edges`/`steps` 로 정의되는 JSON. 장면별 `setTimeout` 코드는 없습니다
+  (`npm run check` 가 이를 검사합니다). 애니메이션은 CSS transition/keyframes
+  뿐이며 `prefers-reduced-motion` 를 지원합니다.
+- **콘텐츠 원본 분리** — `src/content/v4/curriculum.json` + `scenes/*.json` 이
+  강의 순서·제목·강사 메모를 소유하고, `one-shot.js` 는 `SCENE_RENDERERS`
+  (시각 마크업)만 남겼습니다. 21개 렌더러 본문은 diff 로 바이트 단위 동일함을
+  확인했습니다. `npm run content:build` / `content:check` 로 빌드·검증합니다.
+- **JuCoding Archive (외부 자료함)** — `Documents/JuCoding/Archive/` 를 첫 실행 시
+  자동 생성(`inbox`/`reviewed`/`applied`/`backup`). 지원 형식
+  `.md .txt .json .png .jpg .jpeg .webp`, `.pdf` 는 `PDF 지원 예정` 으로 표시.
+- **자료 → 강의 변경안 흐름** — `새 자료 확인` → `변경안 만들기` → Preview →
+  변경별 사람 승인 → 적용. 발견만으로 강의가 바뀌지 않으며, 변경 카드는
+  `기존 유지` 가 기본값이고 반영되는 문장은 수동 편집본입니다.
+- **적용 직전 자동 백업** — `Archive/backup/YYYY-MM-DD-HHmm/` 에 적용 전
+  덮어쓰기 파일, 강의 내용 스냅샷, `RESTORE.txt` 를 기록합니다. 반영된 원자료는
+  `applied/` (함께 `apply-*.json` 매니페스트), 반영되지 않은 자료는 `reviewed/`,
+  후보가 없던 자료는 `inbox` 에 남습니다.
+- **LectureOrganizerProvider 어댑터** — API 키 없이 로컬에서 동작하는 규칙 기반
+  제공자를 기본으로 둡니다. 자음/한글이 공백 구분되지 않아 문자 trigram
+  Sørensen–Dice 유사도로 장면을 매칭합니다. `.json` 자료가 이미 변경안 형식이면
+  그대로 사용합니다. AI 제공자가 없을 때 `AI 정리는 연결되지 않았습니다.` 를
+  표시하고 수동 Draft 편집은 계속 가능합니다.
+- **설치본 무변경** — 승인된 변경은 `userData` 덮어쓰기 파일로 저장되고 강의가
+  렌더 시점에 병합합니다. `jucoding-archive://` 프로토콜은 Archive 루트 내부
+  파일만 제공합니다.
+- **홈 UI** — `자료실` 에 Archive 카드(경로, 새 자료 수, 자료함 열기/새 자료
+  확인/강의 변경안 검토), `강사 도구` 에 Archive·변경안 검토·백업 폴더 추가.
+  기존 7개 섹션과 디자인은 그대로입니다.
+- **QA 확장** — `npm run check` 31개 검사, `npm run smoke:v4` 29개,
+  `npm run smoke:v4:shell` 41개(가시 창 필요 1개 제외). 시뮬레이션 제어 전체 매트릭스, 키 충돌 방지,
+  reduced-motion(CDP 에뮬레이션), 1366×768·1920×1080 레이아웃, 6개 WEBP,
+  콘솔 에러 0, 비로컬 요청 0, Archive 승인 흐름(백업 선행, reject 무효성,
+  hand-edit 반영, applied/reviewed 분류)을 검증합니다. 스모크는 기본적으로
+  숨김 창으로 실행되어 포커스를 가져가지 않습니다.
+- `npm run capture:v41` — V4.1 화면 기록 캡처(가시 창 필요).
+- `docs/V4_1_SIMULATION_ARCHIVE.md`, `DESIGN.md` 8.1·10·11절 갱신.
+
+### 수정
+
+- `getProposal()` 이 제안안 id가 `.json` 으로 끝나기를 요구해 모든 적용이 조용히
+  실패하던 버그 수정. id 를 정규화하고 화이트리스트로 경로 이탈도 차단합니다.
+- `new_scene` 장면의 `chapter` 기본값이 커리큘럼에 없는 `'auto'` 로 저장되어
+  1장에 잘못 분류되던 버그 수정, `title`/`cue`/`extra`/`blocks` 전달 누락 수정.
+- Archive 변경 카드에서 선택된 결정(기본 `기존 유지`)이 표시되지 않던 문제 수정.
+- V4 check 의 패키징 검증을 실제 파일 목록 해석으로 확장(호스트 무관 실행).
+- F: 드라이브(9p) 재마운트 시 `chmod` 가 불가해져 git lock 생성이 실패하던
+  환경 문제를 `core.sharedRepository=false` 로 우회.
+
+## [4.0.0] - 2026-07-02
 
 ### 추가
 

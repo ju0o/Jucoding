@@ -1,0 +1,31 @@
+{
+  "schema": "jucoding-simulation",
+  "id": "frontend-api-backend",
+  "title": "Frontend → API → Backend → Database",
+  "subtitle": "사용자 행동 하나가 여러 부품을 거치는 과정",
+  "sceneId": "architecture",
+  "nodes": [
+    { "id": "frontend", "label": "프론트엔드", "icon": "🖥️", "note": "사용자가 누른 버튼" },
+    { "id": "api", "label": "API", "icon": "↔️", "note": "요청을 넘기는 약속" },
+    { "id": "backend", "label": "백엔드", "icon": "⚙️", "note": "검증하고 처리" },
+    { "id": "database", "label": "데이터베이스", "icon": "🗄️", "note": "데이터를 저장", "emphasis": true }
+  ],
+  "edges": [
+    { "id": "e1", "from": "frontend", "to": "api" },
+    { "id": "e2", "from": "api", "to": "backend" },
+    { "id": "e3", "from": "backend", "to": "database" }
+  ],
+  "steps": [
+    { "id": "s1", "label": "프론트엔드 등장", "target": "frontend", "action": "show", "duration": 800, "narration": "사용자가 화면에서 “게시글 저장”을 누릅니다." },
+    { "id": "s2", "label": "API로 요청", "target": "api", "action": "connect", "duration": 800, "narration": "프론트엔드가 API로 요청을 보냅니다." },
+    { "id": "s3", "label": "API 전달", "target": "api", "action": "activate", "duration": 900, "narration": "API는 서로 말 거는 약속입니다." },
+    { "id": "s4", "label": "백엔드 처리", "target": "backend", "action": "connect", "duration": 800, "narration": "백엔드가 요청을 받습니다." },
+    { "id": "s5", "label": "검증 · 처리", "target": "backend", "action": "activate", "duration": 1000, "narration": "백엔드가 로그인 확인과 값 검증을 수행합니다." },
+    { "id": "s6", "label": "DB 저장 요청", "target": "database", "action": "connect", "duration": 800, "narration": "백엔드가 데이터베이스에 저장 요청을 보냅니다." },
+    { "id": "s7", "label": "DB 저장", "target": "database", "action": "activate", "duration": 1000, "narration": "데이터베이스가 게시글을 저장합니다." },
+    { "id": "s8", "label": "백엔드 완료", "target": "backend", "action": "complete", "duration": 500, "narration": "처리가 끝났습니다." },
+    { "id": "s9", "label": "DB 완료", "target": "database", "action": "complete", "duration": 600, "narration": "저장이 확인되었습니다." },
+    { "id": "s10", "label": "API 완료", "target": "api", "action": "complete", "duration": 400, "narration": "응답이 돌아옵니다." },
+    { "id": "s11", "label": "화면 반영", "target": "frontend", "action": "complete", "duration": 800, "narration": "화면에 저장 결과가 반영됩니다." }
+  ]
+}

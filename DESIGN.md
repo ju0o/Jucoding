@@ -208,6 +208,45 @@ Rules:
 - respect `prefers-reduced-motion`
 - avoid background motion that competes with projected explanation
 
+### 8.1 Lecture simulation (V4.1)
+
+A simulation is a *stepped replay of a concept inside a scene*, not decoration.
+The instructor starts it and stays in control; the deck never advances itself.
+
+Required controls on every simulation:
+
+| Control | Key |
+|---|---|
+| 시작 / 일시정지 / 계속 | `Space` |
+| 다음 단계 | `→` |
+| 처음부터 | `R` |
+| 정적 화면으로 돌아가기 | `Esc` |
+| 속도 | 0.75x / 1x / 1.5x |
+
+Keyboard arbitration: while a simulation is open it owns `Space`, `→`, `←`, `R`
+and `Esc`, and the lecture's own scene navigation stands down. When no simulation
+is open the lecture keys behave exactly as before. There is no key that means two
+things at once.
+
+Motion vocabulary (see `src/content/v4/simulation.css`):
+
+| Element | Treatment |
+|---|---|
+| Card entry | fade + translateY |
+| Emphasis card | soft scale (~4%) |
+| Connector | left→right draw |
+| Running step | pulse + glow ring, exactly one at a time |
+| Completed step | green tint + check badge |
+| Hover | 3px lift |
+| Buttons | hover lift + press scale |
+| Scene entry | staggered fade + translateY |
+
+Because the running step is the only pulsing element and completed steps keep
+their check, a projected room can always tell what is happening right now.
+
+`prefers-reduced-motion: reduce` removes all of it through CSS only. Step timing
+and state changes are unaffected, so the explanation still works.
+
 ---
 
 ## 9. Teaching Interaction
@@ -224,7 +263,75 @@ These are for understanding, not a full LMS assessment system.
 
 ---
 
-## 10. Current V4 Reference Curriculum
+## 10. Content Source of Truth
+
+Content and rendering code are separate concerns.
+
+```
+src/content/v4/
+├─ curriculum.json          # chapters + scene order
+├─ scenes/NN-slug.json      # per-scene teaching copy (title/narration/cue/extra)
+├─ simulations/*.json       # node/edge/step definitions
+└─ generated/               # built by scripts/build-v4-content.js (do not hand-edit)
+```
+
+- `one-shot.js` holds only `SCENE_RENDERERS`: one markup function per scene id.
+  It contains no teaching copy, and `npm run check` fails if it starts to.
+- A simulation is data: `nodes`, `edges`, and a list of
+  `{ id, label, target, action, duration, narration }` steps where `action` is
+  `show | activate | connect | complete`. No scene owns its own timers.
+- `scripts/build-v4-content.js` validates the data (every node is targeted, every
+  connector is drawn, every run ends in `complete`) and compiles it into
+  `generated/content-registry.js`, because the lecture is loaded over `file://`
+  where fetching local JSON is blocked.
+
+Because the teaching copy is data, the Archive can change a lecture without
+touching code.
+
+---
+
+## 11. JuCoding Archive (V4.1)
+
+An external, user-visible folder, created on first run:
+
+```
+Documents/JuCoding/Archive/
+├─ inbox/     ← the instructor drops material here
+├─ reviewed/  ← scanned, but nothing was applied
+├─ applied/   ← applied material + an apply-<timestamp>-<id>.json manifest
+└─ backup/    ← YYYY-MM-DD-HHmm/ written before every apply
+```
+
+Supported in V1: `.md` `.txt` `.json` `.png` `.jpg` `.jpeg` `.webp`.
+`.pdf` is listed as **PDF 지원 예정** rather than silently dropped, because V1
+ships no PDF text extraction.
+
+The update flow is ordered and enforced, never suggested:
+
+```
+material → scan → analyse → draft → preview → human approval → apply
+```
+
+Non-negotiable rules:
+
+- Finding material never changes the lecture.
+- Nothing is written inside the installed app. Approved changes become an
+  override file in `userData` that the lecture merges at render time, so a fresh
+  install behaves identically.
+- Every apply writes `backup/YYYY-MM-DD-HHmm/` first, containing the previous
+  override file, a lecture content snapshot, and a `RESTORE.txt`.
+- Change cards default to **기존 유지**. Only changes explicitly switched to
+  **이 변경 적용** are written, and the text that lands is the hand-edited text.
+- Material with an approved change moves to `applied/`; material with none moves
+  to `reviewed/`; material that produced no candidates stays in `inbox/`.
+- The app works with no API key and no network. `LectureOrganizerProvider` is an
+  adapter; the shipped local provider is rule-based, and with no AI provider
+  connected the UI says `AI 정리는 연결되지 않았습니다.` while manual draft
+  editing stays available.
+
+---
+
+## 12. Current V4 Reference Curriculum
 
 The first V4 reference experience is:
 
@@ -238,5 +345,7 @@ It follows six sections:
 4. 프로젝트 기획 용어
 5. 개발서버 · 배포 · Git
 6. MCP · Worker · 자동화
+
+21 scenes in total, with interactive simulations on six of them.
 
 New beginner lecture UI should remain visually compatible with this reference unless a later Owner decision supersedes it.

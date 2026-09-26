@@ -1,0 +1,33 @@
+{
+  "schema": "jucoding-simulation",
+  "id": "chatgpt-vs-computer-agent",
+  "title": "ChatGPT vs 컴퓨터 Agent",
+  "subtitle": "“어떻게 고쳐?” 와 “직접 고쳐.”",
+  "sceneId": "chat-terminal",
+  "nodes": [
+    { "id": "me", "label": "나", "icon": "🧑", "note": "“이 화면을 고쳐줘”", "row": 0, "emphasis": true },
+    { "id": "chatgpt", "label": "ChatGPT", "icon": "💬", "note": "대화로 답합니다", "row": 1 },
+    { "id": "advice", "label": "설명 · 코드 제안", "icon": "📝", "note": "직접 고치지는 않음", "row": 1 },
+    { "id": "agent", "label": "터미널 Agent", "icon": "⌨️", "note": "직접 일합니다", "row": 2, "emphasis": true },
+    { "id": "files", "label": "실제 파일 · 실행", "icon": "📁", "note": "코드가 바로 바뀜", "row": 2 }
+  ],
+  "edges": [
+    { "id": "e1", "from": "me", "to": "chatgpt" },
+    { "id": "e2", "from": "chatgpt", "to": "advice" },
+    { "id": "e3", "from": "me", "to": "agent" },
+    { "id": "e4", "from": "agent", "to": "files" }
+  ],
+  "steps": [
+    { "id": "s1", "label": "요청 등장", "target": "me", "action": "show", "duration": 800, "narration": "“이 화면을 고쳐줘”라고 말합니다." },
+    { "id": "s2", "label": "ChatGPT 경로", "target": "chatgpt", "action": "connect", "duration": 900, "narration": "ChatGPT는 대화를 통해 답합니다." },
+    { "id": "s3", "label": "ChatGPT 설명", "target": "chatgpt", "action": "activate", "duration": 1000, "narration": "방법을 설명하고 아이디어를 정리합니다." },
+    { "id": "s4", "label": "제안 결과", "target": "advice", "action": "connect", "duration": 800, "narration": "수정 방법과 코드 예시를 제안합니다." },
+    { "id": "s5", "label": "ChatGPT 완료", "target": "chatgpt", "action": "complete", "duration": 500, "narration": "대화는 여기서 끝납니다." },
+    { "id": "s6", "label": "설명 완료", "target": "advice", "action": "complete", "duration": 700, "narration": "직접 적용하려면 사람이 코드를 옮겨야 합니다." },
+    { "id": "s7", "label": "Agent 경로", "target": "agent", "action": "connect", "from": "me", "duration": 900, "narration": "터미널 Agent는 컴퓨터 안에서 일합니다." },
+    { "id": "s8", "label": "Agent 실행", "target": "agent", "action": "activate", "duration": 1000, "narration": "파일과 명령을 직접 다룹니다." },
+    { "id": "s9", "label": "실제 변경", "target": "files", "action": "connect", "duration": 800, "narration": "실제 파일을 수정하고 명령을 실행합니다." },
+    { "id": "s10", "label": "Agent 완료", "target": "agent", "action": "complete", "duration": 400, "narration": "작업이 끝났습니다." },
+    { "id": "s11", "label": "파일 완료", "target": "files", "action": "complete", "duration": 800, "narration": "대화와 Agent의 차이가 바로 이 지점입니다." }
+  ]
+}
