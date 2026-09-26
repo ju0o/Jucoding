@@ -307,26 +307,21 @@ function checkPackaging() {
   if (hits.length) fail(`build.files에 V3 포함 패턴 존재: ${hits.join(', ')}`);
   else pass('build.files excludes V3 content patterns');
 
-  const required = ['src/main/v4-main.js', 'src/renderer/v4', 'src/content/v4', 'src/assets'];
+  const required = ['src/main', 'src/preload', 'src/renderer/v4', 'src/content/v4', 'src/assets'];
   const missing = required.filter((pattern) => !blob.includes(pattern));
   if (missing.length) fail(`build.files에 V4 필수 경로 누락: ${missing.join(', ')}`);
   else pass('build.files covers V4 runtime paths');
 
-  // The new runtime files must actually be inside the packaged globs. A missing
-  // entry here would ship a build that fails at runtime, which no unit test
-  // in this repo can catch.
-  const extraRequired = ['src/main/v4-archive.js', 'src/main/v4-organizer.js', 'src/preload/preload.js'];
-  const notPackaged = extraRequired.filter((rel) => !fs.existsSync(path.join(root, rel)));
-  if (notPackaged.length) fail(`패키징 대상 파일 없음: ${notPackaged.join(', ')}`);
-  else if (!blob.includes('src/main/v4-main.js')) {
-    fail('build.files에 v4-archive/v4-organizer 를 포함시킬 수 없습니다');
+  // electron-builder only ever copied src/main/v4-main.js, so the archive and
+  // organizer modules were missing from the asar and the installed app could
+  // not start. The globs must be directories, not single files.
+  const singleFileMain = files.filter((f) => /^src\/main\/[^/*]+$/.test(f));
+  if (singleFileMain.length) {
+    fail(`build.files가 src/main 을 개별 파일로 지정 — 같은 폴더의 다른 모듈이 누락됩니다: ${singleFileMain.join(', ')}`);
   } else {
-    pass('archive and organizer modules sit inside the packaged src/main/v4-main.js entry');
+    pass('build.files includes whole src/main and src/preload directories');
   }
 
-  // Verify the asar file list resolves against what is on disk, using the same
-  // glob semantics electron-builder applies. This runs on any host, unlike the
-  // packaging step itself.
   const globish = (pattern) => {
     const abs = path.join(root, pattern);
     if (pattern.endsWith('/**/*')) {
@@ -346,7 +341,15 @@ function checkPackaging() {
     return fs.existsSync(abs) ? [abs] : [];
   };
   const shipped = files.flatMap(globish);
+
+  // The new runtime files must actually be inside the packaged globs. A missing
+  // entry here ships a build that fails at startup, which nothing else in this
+  // repo can catch — the asar is only assembled by electron-builder.
   const mustShip = [
+    'src/main/v4-main.js',
+    'src/main/v4-archive.js',
+    'src/main/v4-organizer.js',
+    'src/preload/preload.js',
     'src/content/v4/one-shot.html',
     'src/content/v4/one-shot.js',
     'src/content/v4/simulation.css',
@@ -367,9 +370,29 @@ function checkPackaging() {
 
   const notInPackage = mustShip.filter((rel) => !shipped.includes(path.join(root, rel)));
   if (notInPackage.length) {
-    fail(`패키징 globs가 다음을 포함하지 못함:\n${notInPackage.join('\n')}`);
+    fail(`패키징 globs가 다음을 포함하지 못함 (설치본이 시작하지 못합니다):\n${notInPackage.join('\n')}`);
   } else {
     pass(`packaged file set resolves (${shipped.length} files, ${simulations.length} simulations, ${sceneFiles.length} scene files)`);
+  }
+
+  // The negated patterns have to be applied, otherwise a whole-directory glob
+  // quietly ships the legacy V3 entry point again.
+  const excluded = new Set(
+    files
+      .filter((f) => f.startsWith('!'))
+      .map((f) => path.join(root, f.slice(1).replace(/\/\*\*\/$/, '')))
+  );
+  const excludedFile = files
+    .filter((f) => f.startsWith('!') && !f.endsWith('/**/*'))
+    .map((f) => path.join(root, f.slice(1)));
+  const actuallyShipped = shipped.filter((abs) => !excluded.has(abs) && !excludedFile.includes(abs));
+  const v3Leaks = actuallyShipped.filter((abs) => /[\\/]src[\\/](main[\\/]main\.js|content[\\/]v3|content[\\/]sessions|content[\\/]tracks)[\\/]?/.test(abs)
+    || abs.endsWith(path.join('src', 'content', 'v3'))
+    || abs.endsWith(path.join('src', 'main', 'main.js')));
+  if (v3Leaks.length) {
+    fail(`V3 코드가 패키지에 포함됩니다:\n${v3Leaks.map((f) => path.relative(root, f)).join('\n')}`);
+  } else {
+    pass(`no V3 runtime code in the package (${actuallyShipped.length} files after exclusions)`);
   }
 }
 

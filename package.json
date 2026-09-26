@@ -58,8 +58,9 @@
     },
     "files": [
       "package.json",
-      "src/main/v4-main.js",
-      "src/preload/preload.js",
+      "src/main/**/*",
+      "!src/main/main.js",
+      "src/preload/**/*",
       "src/renderer/v4/**/*",
       "src/content/v4/**/*",
       "src/assets/**/*"
