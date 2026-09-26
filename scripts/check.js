@@ -33,7 +33,6 @@ function checkJavaScript() {
     ...walk(path.join(root, 'src', 'content', 'v4'), (file) => file.endsWith('.js')),
     ...walk(path.join(root, 'src', 'content', 'sources'), (file) => file.endsWith('.js')),
     path.join(root, 'src', 'main', 'main.js'),
-    path.join(root, 'src', 'main', 'v4-bootstrap.js'),
     path.join(root, 'src', 'preload', 'preload.js'),
     path.join(root, 'src', 'content', 'sessions', 'session-03-direction.bundle.js'),
     ...walk(path.join(root, 'scripts'), (file) => file.endsWith('.js')),

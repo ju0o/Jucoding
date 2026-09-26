@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;">
+  <title>JuCoding · AI & Vibe Coding Studio</title>
+  <link rel="stylesheet" href="./home.css">
+</head>
+<body>
+  <div id="v4home" class="home-shell">
+    <header class="home-top">
+      <div class="brand">
+        <span class="brand-cube">J</span>
+        <div>
+          <strong>JuCoding</strong>
+          <span>AI · AGENT · VIBE CODING STUDIO</span>
+        </div>
+      </div>
+      <nav class="home-nav" aria-label="주요 메뉴">
+        <button type="button" data-section="home" class="active">홈</button>
+        <button type="button" data-section="lecture">강의하기</button>
+        <button type="button" data-section="practice">실습 예제</button>
+        <button type="button" data-section="project">프로젝트</button>
+        <button type="button" data-section="ai">AI 도우미</button>
+        <button type="button" data-section="library">자료실</button>
+        <button type="button" data-section="instructor" class="secondary">강사 도구</button>
+      </nav>
+    </header>
+
+    <main class="home-main">
+      <section id="sec-home" class="home-section active" aria-label="홈">
+        <div class="hero-card">
+          <span class="kicker">오늘의 강의 · 왕초보 3시간 스터디</span>
+          <h1>AI · Agent · <span class="grad">바이브코딩</span></h1>
+          <p class="lead">AI에게 물어보는 것에서 시작해서, Agent에게 일을 맡기고, 내가 원하는 도구와 공간까지 만드는 흐름을 한 번에 이해합니다.</p>
+          <div class="hero-actions">
+            <button id="btn-start-lecture" class="cta" type="button">강의 시작 → 전체화면</button>
+            <button id="btn-goto-curriculum" class="ghost" type="button">목차 보기</button>
+          </div>
+          <p class="meta-line">21개 장면 · 쉬는 시간 포함 약 3시간 · 인터넷 없이 진행 가능</p>
+        </div>
+        <div class="quick-grid">
+          <button type="button" data-goto="practice"><b>실습 예제</b><small>프로젝트·자동화 폼 바로 열기</small></button>
+          <button type="button" data-goto="project"><b>프로젝트</b><small>내 첫 아이디어 3문장 정리</small></button>
+          <button type="button" data-goto="library"><b>자료실</b><small>수업용 그림 6종 크게 보기</small></button>
+        </div>
+      </section>
+
+      <section id="sec-lecture" class="home-section" aria-label="강의하기">
+        <div class="section-head">
+          <span class="kicker">강의하기 · 180분</span>
+          <h2>오늘의 6개 흐름 + 안전 수업</h2>
+        </div>
+        <div id="chapter-list" class="chapter-list"></div>
+        <p class="meta-line">중간 쉬는 시간 10분 포함 · 각 흐름을 눌러 해당 장면부터 시작할 수 있습니다.</p>
+      </section>
+
+      <section id="sec-practice" class="home-section" aria-label="실습 예제">
+        <div class="section-head">
+          <span class="kicker">실습 예제</span>
+          <h2>강의 속 실습 장면으로 바로 이동</h2>
+        </div>
+        <div class="cards two">
+          <div class="info-card">
+            <h3>내 첫 프로젝트 정리</h3>
+            <p>만들고 싶은 것 · 사용자 · 핵심 기능을 3문장으로 정리하면 프로젝트 초안이 만들어집니다.</p>
+            <button type="button" data-lecture-scene="project-form" class="cta small">실습 장면 열기</button>
+          </div>
+          <div class="info-card">
+            <h3>내 자동화 아이디어</h3>
+            <p>반복 업무 하나를 입력 → Agent/Worker → 결과 흐름으로 바꿔봅니다.</p>
+            <button type="button" data-lecture-scene="automation-form" class="cta small">실습 장면 열기</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="sec-project" class="home-section" aria-label="프로젝트">
+        <div class="section-head">
+          <span class="kicker">프로젝트</span>
+          <h2>내 첫 프로젝트 메모</h2>
+        </div>
+        <div class="form-card">
+          <div class="form-fields">
+            <div class="field"><label>1. 무엇을 만들고 싶나요?</label><input id="memo-what" placeholder="예: 모임 자료를 자동으로 정리하는 앱"></div>
+            <div class="field"><label>2. 누가 사용할까요?</label><input id="memo-who" placeholder="예: 나와 스터디 멤버"></div>
+            <div class="field"><label>3. 가장 중요한 기능은?</label><textarea id="memo-core" placeholder="예: 메모를 넣으면 회차별 자료 초안 정리"></textarea></div>
+            <button id="memo-save" class="cta small" type="button">이 컴퓨터에 저장</button>
+          </div>
+          <div class="output-card"><h3>📝 저장된 메모</h3><pre id="memo-output">아직 저장된 메모가 없습니다.</pre></div>
+        </div>
+        <p class="meta-line" id="memo-status">앱에서 실행하면 이 컴퓨터에 저장되고, 강의의 프로젝트 실습으로 이어집니다.</p>
+      </section>
+
+      <section id="sec-ai" class="home-section" aria-label="AI 도우미">
+        <div class="section-head">
+          <span class="kicker">AI 도우미</span>
+          <h2>준비 중</h2>
+        </div>
+        <div class="info-card">
+          <p>수업 중 질문을 돕는 AI 도우미는 다음 단계에서 연결됩니다. 오늘은 강의 속 <b>ChatGPT와 터미널 Agent</b> 장면을 참고하세요.</p>
+          <button type="button" data-lecture-scene="chat-terminal" class="ghost">관련 장면 보기</button>
+        </div>
+      </section>
+
+      <section id="sec-library" class="home-section" aria-label="자료실">
+        <div class="section-head">
+          <span class="kicker">자료실 · 로컬 수업 자료</span>
+          <h2>그림 6종</h2>
+        </div>
+        <div id="asset-grid" class="asset-grid"></div>
+        <p class="meta-line">클릭하면 크게 볼 수 있습니다 · 인터넷 없이 표시됩니다.</p>
+      </section>
+
+      <section id="sec-instructor" class="home-section" aria-label="강사 도구">
+        <div class="section-head">
+          <span class="kicker">강사 도구 · 보조 영역</span>
+          <h2>수업 운영</h2>
+        </div>
+        <div class="cards two">
+          <div class="info-card">
+            <h3>화면 설정</h3>
+            <p>빔 프로젝터 수업용 전체화면을 켜고 끕니다.</p>
+            <button id="btn-fullscreen" class="ghost" type="button">전체화면 켜기/끄기</button>
+          </div>
+          <div class="info-card">
+            <h3>프로젝트 메모 백업</h3>
+            <p>이 컴퓨터에 저장된 수업 메모를 백업하거나 복원합니다.</p>
+            <div class="row">
+              <button id="btn-export" class="ghost" type="button">백업 저장</button>
+              <button id="btn-import" class="ghost" type="button">백업 복원</button>
+            </div>
+            <p class="meta-line" id="backup-status"></p>
+          </div>
+        </div>
+        <div class="info-card legacy-note">
+          <h3>V3 레거시 안내</h3>
+          <p>기존 V3 과정 관리 화면과 V3 수업 자료는 현재 제품에 포함되지 않습니다. 필요하면 <b>archive/jucoding-v3-final</b> 브랜치에서 참조용으로 확인하세요.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="home-footer">
+      <span>JUCODING V4</span>
+      <span id="home-status">OFFLINE READY</span>
+    </footer>
+  </div>
+
+  <dialog id="asset-dialog" aria-label="자료 크게 보기">
+    <div class="dialog-head">
+      <div><span>LECTURE MATERIAL</span><h2 id="asset-dialog-title">자료</h2></div>
+      <button class="close-dialog" data-close="asset-dialog" type="button">×</button>
+    </div>
+    <div class="asset-dialog-body">
+      <img id="asset-dialog-img" alt="">
+      <p id="asset-dialog-cap" class="asset-dialog-cap"></p>
+    </div>
+  </dialog>
+
+  <script src="./home.js"></script>
+</body>
+</html>

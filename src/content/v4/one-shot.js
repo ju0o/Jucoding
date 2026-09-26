@@ -501,7 +501,19 @@
   });
 
   buildChapterGrid();
+
+  // Deep link: one-shot.html#scene=<id> (used by V4 home sections)
+  const initialHash = (window.location.hash || '').replace(/^#scene=/, '');
+  if (initialHash) {
+    const target = scenes.findIndex((scene) => scene.id === initialHash);
+    if (target >= 0) index = target;
+  }
   renderScene();
+
+  const homeButton = document.getElementById('btn-home');
+  homeButton?.addEventListener('click', () => {
+    window.location.href = '../../renderer/v4/home.html';
+  });
 
   const assetDialog = document.getElementById('asset-dialog');
   stage.addEventListener('click', (event) => {
