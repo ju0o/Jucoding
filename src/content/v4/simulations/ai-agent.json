@@ -1,38 +1,42 @@
 {
   "schema": "jucoding-simulation",
   "id": "ai-agent",
-  "title": "목표 → Agent → 도구 → 확인 → 반복 → 완료",
-  "subtitle": "Agent는 말만 하지 않고 행동 루프를 돌립니다",
+  "title": "AI가 망쳤을 때 · 되돌리는 루프",
+  "subtitle": "확인하지 않으면 그대로 남고, 확인하면 되돌립니다",
   "sceneId": "ai-agent",
   "nodes": [
-    { "id": "goal", "label": "목표", "icon": "🎯", "note": "“이걸 완성해줘”", "emphasis": true },
-    { "id": "agent", "label": "Agent", "icon": "🤖", "note": "다음 행동 결정", "emphasis": true },
-    { "id": "tool", "label": "도구 사용", "icon": "🛠️", "note": "Worker가 실제 실행" },
-    { "id": "check", "label": "확인", "icon": "✅", "note": "결과가 맞는지 검토" },
-    { "id": "loop", "label": "반복", "icon": "🔁", "note": "부족하면 다시 시도" },
-    { "id": "done", "label": "완료", "icon": "🏆", "note": "목표 달성" }
+    { "id": "goal", "row": 0, "label": "목표", "icon": "🎯", "note": "부록 이미지 16장 추가", "emphasis": true },
+    { "id": "agent", "row": 0, "label": "AI가 실행", "icon": "🤖", "note": "파일을 직접 고침", "emphasis": true },
+    { "id": "check", "row": 0, "label": "결과 확인", "icon": "🔍", "note": "16장이 전부 사라짐" },
+    { "id": "git", "row": 1, "label": "되돌리기", "icon": "↩️", "note": "Git으로 이전 상태 복구", "emphasis": true },
+    { "id": "retry", "row": 1, "label": "다시 시도", "icon": "🔁", "note": "원인을 바꿔 재실행" },
+    { "id": "done", "row": 1, "label": "완료", "icon": "✅", "note": "16장 모두 정상" }
   ],
   "edges": [
     { "id": "e1", "from": "goal", "to": "agent" },
-    { "id": "e2", "from": "agent", "to": "tool" },
-    { "id": "e3", "from": "tool", "to": "check" },
-    { "id": "e4", "from": "check", "to": "loop" },
-    { "id": "e5", "from": "loop", "to": "agent", "curve": true },
-    { "id": "e6", "from": "loop", "to": "done" }
+    { "id": "e2", "from": "agent", "to": "check" },
+    { "id": "e3", "from": "check", "to": "git" },
+    { "id": "e4", "from": "git", "to": "retry" },
+    { "id": "e5", "from": "retry", "to": "check", "curve": true },
+    { "id": "e6", "from": "retry", "to": "done" }
   ],
   "steps": [
-    { "id": "s1", "label": "목표 카드 등장", "target": "goal", "action": "show", "duration": 800, "narration": "사용자가 목표를 줍니다. “이걸 완성해줘.”" },
-    { "id": "s2", "label": "Agent 활성화", "target": "agent", "action": "connect", "duration": 800, "narration": "Agent가 목표를 받습니다." },
-    { "id": "s3", "label": "Agent 판단", "target": "agent", "action": "activate", "duration": 1000, "narration": "Agent가 목표를 이해하고 다음 행동을 정합니다." },
-    { "id": "s4", "label": "도구 연결", "target": "tool", "action": "connect", "duration": 800, "narration": "Agent가 필요한 도구를 고릅니다." },
-    { "id": "s5", "label": "Worker 실행", "target": "tool", "action": "activate", "duration": 1100, "narration": "Worker가 선택한 도구를 실제로 실행합니다." },
-    { "id": "s6", "label": "도구 실행 완료", "target": "tool", "action": "complete", "duration": 500, "narration": "도구 실행이 끝났습니다." },
-    { "id": "s7", "label": "확인 단계", "target": "check", "action": "connect", "duration": 800, "narration": "Agent가 실행 결과를 확인합니다." },
-    { "id": "s8", "label": "결과 검토", "target": "check", "action": "activate", "duration": 1000, "narration": "결과가 목표에 맞는지 검토합니다." },
-    { "id": "s9", "label": "반복 단계", "target": "loop", "action": "connect", "from": "check", "duration": 800, "narration": "아직 부족하면 도구를 다시 사용합니다." },
-    { "id": "s10", "label": "반복 실행", "target": "loop", "action": "activate", "duration": 1000, "narration": "목표가 만족될 때까지 같은 루프를 반복합니다." },
-    { "id": "s11", "label": "Agent로 되돌아가기", "target": "agent", "action": "connect", "from": "loop", "duration": 1000, "narration": "결과가 목표에 안 맞으면 Agent로 되돌아가 다음 행동을 정합니다." },
-    { "id": "s12", "label": "완료 단계", "target": "done", "action": "connect", "from": "loop", "duration": 800, "narration": "목표를 달성했다면 반복을 끝내고 마칩니다." },
-    { "id": "s13", "label": "완료 표시", "target": "done", "action": "complete", "duration": 800, "narration": "목표 → 도구 → 확인 → 반복 → 완료 루프가 끝났습니다." }
+    { "id": "s1", "label": "목표 주기", "target": "goal", "action": "show", "duration": 800, "narration": "“부록에 이미지 16장을 추가해줘.” 사람이 목적을 말로 줍니다." },
+    { "id": "s2", "label": "AI가 받음", "target": "agent", "action": "connect", "from": "goal", "duration": 700, "narration": "AI가 목표를 받습니다." },
+    { "id": "s3", "label": "AI가 파일 수정", "target": "agent", "action": "activate", "duration": 1100, "narration": "AI는 조언만 하지 않고 파일을 직접 고칩니다. 이게 AI와 Agent의 차이입니다." },
+    { "id": "s4", "label": "AI가 '완료'라고 말함", "target": "agent", "action": "complete", "duration": 800, "narration": "“다 했습니다.” 실행은 끝났다고 말합니다. 그런데 아직 아무것도 확인하지 않았습니다." },
+    { "id": "s5", "label": "결과를 확인하러 감", "target": "check", "action": "connect", "from": "agent", "duration": 700, "narration": "이 다음 단계가 오히려 중요합니다." },
+    { "id": "s6", "label": "16장이 사라짐", "target": "check", "action": "activate", "duration": 1200, "narration": "확인해 보니 이미지 16장이 전부 사라졌습니다. AI가 고친 곳이 아니라 다른 곳을 건드린 것입니다." },
+    { "id": "s7", "label": "되돌리기로 이동", "target": "git", "action": "connect", "from": "check", "duration": 700, "narration": "그래서 되돌립니다. 기록이 남아 있어야 돌아갈 수 있습니다." },
+    { "id": "s8", "label": "Git으로 복구", "target": "git", "action": "activate", "duration": 1100, "narration": "Git이 작업 전 상태를 그대로 되돌려 줍니다. 이게 Git의 본래 목적입니다." },
+    { "id": "s9", "label": "원래 상태로 복구", "target": "git", "action": "complete", "duration": 700, "narration": "복구 완료. 몇 초면 충분합니다." },
+    { "id": "s10", "label": "원인을 바꿔 다시 시도", "target": "retry", "action": "connect", "from": "git", "duration": 700, "narration": "같은 요청을 그대로 다시 하면 같은 문제가 생깁니다. 원인을 바꿔 줍니다." },
+    { "id": "s11", "label": "재실행", "target": "retry", "action": "activate", "duration": 1000, "narration": "이번엔 대상을 경로가 아니라 파일 이름으로 지정해서 다시 실행합니다." },
+    { "id": "s12", "label": "다시 확인", "target": "check", "action": "connect", "from": "retry", "duration": 800, "narration": "또 확인합니다. 이 왕복이 반복입니다. 한 번만 확인하고 끝내면 안 됩니다." },
+    { "id": "s13", "label": "이번엔 정상", "target": "check", "action": "complete", "duration": 700, "narration": "16장이 모두 정상으로 들어갔습니다." },
+    { "id": "s14", "label": "완료로 이동", "target": "done", "action": "connect", "from": "retry", "duration": 700, "narration": "목표를 달성했습니다." },
+    { "id": "s15", "label": "목표 달성", "target": "done", "action": "complete", "duration": 700, "narration": "완료." },
+    { "id": "s16", "label": "목표 달성 확인", "target": "goal", "action": "complete", "duration": 500, "narration": "처음의 목표를 그대로 만족했습니다." },
+    { "id": "s17", "label": "반복 종료", "target": "retry", "action": "complete", "duration": 900, "narration": "핵심은 이겁니다. AI는 자주 틀립니다. 그래서 확인 단계와 되돌릴 수 있는 기록이 함께 있어야 합니다." }
   ]
 }

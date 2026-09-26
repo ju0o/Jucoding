@@ -57,6 +57,192 @@
       <figcaption><b>${title} · 클릭하면 크게 보기</b>${caption}<br><small>수업용 로컬 자료 · 인터넷 없이 표시됩니다</small></figcaption>
     </figure>`;
 
+  // ---------------------------------------------------------------------------
+  // Shared visual primitives.
+  //
+  // A slide that only *describes* a screen teaches nothing, so scenes can show a
+  // real-looking window, a real command line, and the code that runs behind
+  // them. These builders only draw; the wiring lives in
+  // attachSceneInteractions, and the strings here are markup, not lesson copy.
+  // ---------------------------------------------------------------------------
+  const esc = (text) => String(text == null ? '' : text)
+    .replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // A window with real chrome. `pad:false` hands padding to the caller, for the
+  // flush edges a terminal or a phone-shaped mock needs.
+  const mockWindow = (o) => `
+    <div class="mock mock-${o.kind || 'app'}">
+      <div class="mock-bar">
+        <span class="mock-dots"><i></i><i></i><i></i></span>
+        <span class="mock-title">${esc(o.name || '')}</span>
+        ${o.sub ? `<span class="mock-sub">${esc(o.sub)}</span>` : ''}
+      </div>
+      <div class="mock-body${o.pad === false ? '' : ' pad'}">${o.body || ''}</div>
+      ${o.foot ? `<div class="mock-foot">${o.foot}</div>` : ''}
+    </div>`;
+
+  const mockField = (o) => `
+    <label class="mock-field">
+      <span class="mock-label">${esc(o.label || '')}</span>
+      ${o.multiline
+        ? `<span class="mock-input mock-textarea">${esc(o.value || '')}</span>`
+        : `<span class="mock-input">${esc(o.value || '')}</span>`}
+    </label>`;
+
+  // Highlighting without a dependency, and without ever assembling HTML out of
+  // unescaped input: the line is scanned once, every slice is escaped, and the
+  // only things we contribute are class names.
+  const KEYWORDS = {
+    sql: 'CREATE TABLE|INSERT INTO|VALUES|SELECT|FROM|WHERE|UPDATE|DELETE|PRIMARY KEY|FOREIGN KEY|REFERENCES|DEFAULT|NOT NULL|ON DELETE|AND|OR',
+    js: 'import|from|export|default|const|let|await|async|function|return|new|if|else|for|of|class',
+    sh: 'git|npm|npx|cd|node|gh'
+  };
+
+  const highlight = (code, lang) => {
+    const words = KEYWORDS[lang] || 'ZZZNEVERMATCHZZZ';
+    const re = new RegExp(
+      "('(?:[^'\\\\]|\\\\.)*'|\"(?:[^\"\\\\]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*`)"
+      + '|\\b(' + words + ')\\b'
+      + '|\\b(\\d+(?:\\.\\d+)?)\\b'
+      + '|(?<!\\S)(//[^\\n]*|#[^\\n]*|--[^\\n]*)',
+      'g'
+    );
+    let out = '';
+    let last = 0;
+    let m;
+    while ((m = re.exec(code)) !== null) {
+      out += esc(code.slice(last, m.index));
+      const cls = m[1] ? 'st' : m[2] ? 'kw' : m[3] ? 'nu' : 'cm';
+      out += `<i class="${cls}">${esc(m[0])}</i>`;
+      last = m.index + m[0].length;
+    }
+    return out + esc(code.slice(last));
+  };
+
+  const PROMPT_RE = /^(\s*)([$#>]\s)/;
+
+  const termLine = (line, lang) => {
+    let kind = 'out';
+    let text = '';
+    if (line && typeof line === 'object') {
+      kind = line.t || 'out';
+      text = line.s == null ? '' : String(line.s);
+    } else {
+      text = String(line == null ? '' : line);
+      // Comments are checked first: in a shell `# note` is a note, not a prompt.
+      if (/^\s*(\/\/|#|--)/.test(text)) kind = 'cmt';
+      else if (PROMPT_RE.test(text)) kind = 'cmd';
+    }
+    if (kind === 'cmd') {
+      const m = PROMPT_RE.exec(text);
+      if (m) {
+        return `<span class="tl cmd"><i class="pr">${esc(m[1] + m[2])}</i>${highlight(text.slice(m[0].length), lang)}</span>`;
+      }
+    }
+    if (kind === 'cmt') return `<span class="tl cmt">${highlight(text, lang)}</span>`;
+    return `<span class="tl out">${highlight(text, lang)}</span>`;
+  };
+
+  // Korean glyphs occupy two terminal cells, so box-drawing has to be padded by
+  // display width or the right edge drifts.
+  const dwidth = (s) => [...String(s)].reduce((n, c) => n + (/[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE6F\uFF00-\uFF60\uFFE0-\uFFE6]/.test(c) ? 2 : 1), 0);
+  const padTo = (s, w) => s + ' '.repeat(Math.max(0, w - dwidth(s)));
+  const trimTo = (s, w) => {
+    let out = '';
+    for (const c of String(s)) {
+      if (dwidth(out + c) > w) break;
+      out += c;
+    }
+    return out;
+  };
+
+  const tuiBox = (o) => {
+    const w = o.width || 28;
+    const head = `─ ${o.name || 'TUI'} `;
+    const lines = [`┌${head}${'─'.repeat(Math.max(0, w - dwidth(head)))}┐`];
+    for (const row of o.rows || []) {
+      const label = row.mark ? `${row.text}  ←` : row.text;
+      lines.push(`│${padTo(' ' + trimTo(label, w - 2), w)}│`);
+    }
+    lines.push(`└${'─'.repeat(w)}┘`);
+    return lines;
+  };
+
+  const termBlock = (o) => `
+    <div class="term term-${o.size || 'md'}">
+      <div class="term-bar">
+        <span class="mock-dots"><i></i><i></i><i></i></span>
+        <span class="term-title">${esc(o.name || '터미널')}</span>
+        ${o.note ? `<span class="term-note">${esc(o.note)}</span>` : ''}
+      </div>
+      <pre class="term-body">${(o.lines || []).map((l) => termLine(l, o.lang || 'text')).join('\n')}</pre>
+    </div>`;
+
+  // The request round trip, one step per part that actually does work. `code` is
+  // the literal line that part runs, so the shape of the backend is visible
+  // rather than described.
+  const flowRail = (id, steps) => `
+    <div class="rail" data-rail="${esc(id)}">
+      ${steps.map((s, i) => `
+        <div class="rail-step">
+          <span class="rail-dot">${i + 1}</span>
+          <div class="rail-body">
+            <b>${esc(s.label)}</b>
+            <span class="rail-note">${esc(s.note)}</span>
+            ${s.code ? `<code class="rail-code">${highlight(s.code, s.lang || 'text')}</code>` : ''}
+          </div>
+        </div>`).join('')}
+    </div>`;
+
+  const BRANCH_HUE = {
+    main: '#4d7cff',
+    feature: '#76d995',
+    fix: '#ffad66',
+    release: '#ff7caf',
+    agent: '#9c7bff'
+  };
+
+  // Reads like `git log --graph`: one lane per branch, a curve where a lane
+  // splits off, and a hollow dot on tags.
+  const gitGraph = (rows) => {
+    const lanes = [];
+    for (const r of rows) if (!lanes.includes(r.branch)) lanes.push(r.branch);
+    const x = (branch) => 15 + lanes.indexOf(branch) * 30;
+    const y = (i) => 15 + i * 30;
+    const parts = [];
+    rows.forEach((r, i) => {
+      const cx = x(r.branch);
+      const cy = y(i);
+      const color = BRANCH_HUE[r.branch] || '#755cff';
+      if (i > 0) {
+        const px = x(rows[i - 1].branch);
+        if (px === cx) {
+          parts.push(`<line x1="${cx}" y1="${cy - 30}" x2="${cx}" y2="${cy}" stroke="${color}" stroke-width="2.5"/>`);
+        } else {
+          const mid = cy - 15;
+          parts.push(`<line x1="${px}" y1="${cy - 30}" x2="${px}" y2="${mid}" stroke="${color}" stroke-width="2.5"/>`);
+          parts.push(`<path d="M ${px} ${mid} C ${px} ${cy} ${cx} ${mid} ${cx} ${cy}" fill="none" stroke="${color}" stroke-width="2.5"/>`);
+        }
+      }
+      parts.push(r.tag
+        ? `<circle cx="${cx}" cy="${cy}" r="6" fill="#fff" stroke="${color}" stroke-width="2.5"/>`
+        : `<circle cx="${cx}" cy="${cy}" r="5.5" fill="${color}" stroke="#fff" stroke-width="2"/>`);
+    });
+    const w = 30 + (lanes.length - 1) * 30;
+    const h = 30 + (rows.length - 1) * 30;
+    return `<svg class="git-graph" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMinYMin meet" role="img" aria-label="Git 브랜치 구조">${parts.join('')}</svg>`;
+  };
+
+  const gitRow = (r) => `
+    <div class="git-row">
+      ${gitGraph([r])}
+      <div class="git-meta">
+        <code>${esc(r.sha)}</code>
+        <span>${esc(r.msg)}</span>
+        ${r.note ? `<em>${esc(r.note)}</em>` : ''}
+      </div>
+    </div>`;
+
   const SCENE_RENDERERS = {
     cover: () => `
         <div class="scene center" style="position:relative">
@@ -119,6 +305,19 @@
               </div>
             </div>
           </div>
+          ${termBlock({
+            name: '그래서 실제로 한 일',
+            size: 'sm',
+            lang: 'sh',
+            lines: [
+              '$ git status',
+              '  modified: src/content/v4/one-shot.js     ← AI가 고친 곳',
+              '  deleted:  assets/lecture/appendix/*.png   ← AI가 지운 곳',
+              '$ git checkout -- src/content/v4/one-shot.js',
+              '$ git restore assets/lecture/appendix',
+              { t: 'out', s: '● 6.2초 만에 원래대로 · 1,260줄 되돌림' }
+            ]
+          })}
         </div>`,
     'chat-terminal': () => `
         <div class="scene">
@@ -143,23 +342,97 @@
         </div>`,
     architecture: () => `
         <div class="scene">
-          ${header('한눈에 보는 구조', '이렇게 연결되어 <span class="grad">하나의 서비스</span>가 동작합니다.', '각 부품은 따로 외우는 것이 아니라 서로 연결되어 움직입니다.')}
-          <div class="arch">
-            <div class="arch-node"><div class="bubble-icon">🖥️</div><b>프론트엔드</b><span>보이는 화면</span></div><span class="arch-arrow">↔</span>
-            <div class="arch-node"><div class="bubble-icon">💬</div><b>API</b><span>요청 · 응답</span></div><span class="arch-arrow">↔</span>
-            <div class="arch-node"><div class="bubble-icon">⚙️</div><b>백엔드</b><span>뒤에서 처리</span></div><span class="arch-arrow">↔</span>
-            <div class="arch-node"><div class="bubble-icon">🗄️</div><b>데이터베이스</b><span>데이터 저장</span></div>
+          ${header('한눈에 보는 구조', '화면에서 한 번 누르면, <span class="grad">뒤에서는 네 일</span>이 돌아갑니다.', '부품을 따로 외우는 대신, 버튼 하나를 눌렀을 때 이어지는 일을 그대로 따라가 봅니다.')}
+          <div class="demo-split wide">
+            <div class="demo-col">
+              <span class="demo-cap">실제 화면 · <b>저장하기</b>를 눌러보세요</span>
+              ${mockWindow({
+                kind: 'browser',
+                name: '내 메모장',
+                sub: 'localhost:3000',
+                body: `
+                  ${mockField({ label: '제목', value: '오늘 배운 것' })}
+                  ${mockField({ label: '내용', value: 'AI가 코드를 망칠 때 되돌리는 방법', multiline: true })}
+                  <button class="btn" data-run="save">저장하기</button>
+                  <span class="mock-hint">누르면 오른쪽 4단계가 실제로 순서대로 동작합니다</span>`,
+                foot: `
+                  <div class="mock-toast" data-done="save">✓ 저장되었습니다 · 0.4초</div>
+                  <div class="mock-row reveal" data-done="save" style="margin-top:7px">오늘 배운 것<span class="tagp">방금 전</span></div>`
+              })}
+            </div>
+            <div class="demo-col">
+              <span class="demo-cap">누르면 일어나는 <b>4단계</b></span>
+              ${flowRail('save', [
+                { label: '화면에서 누름', note: '클릭은 그저 신호일 뿐입니다', code: "document.querySelector('#save').click()" },
+                { label: 'API 요청', note: '정해진 주소로 데이터를 보냅니다', code: 'POST /api/notes  { title, body }' },
+                { label: '백엔드 처리', note: '빈 값인지 검사하고 정리합니다', code: 'if (!title) return 400', lang: 'js' },
+                { label: 'DB 저장', note: '데이터베이스에 남깁니다', code: 'INSERT INTO notes (title, body) VALUES ($1, $2)', lang: 'sql' }
+              ])}
+            </div>
           </div>
-          <div class="big-quote" style="font-size:25px">사용자 행동 하나도 사실은 <span style="color:#684fe8">여러 부품이 대화하는 과정</span>입니다.</div>
         </div>`,
     'ui-terms': () => `
         <div class="scene">
-          ${header('화면과 조작 방식', 'GUI · TUI · CLI를 <span class="grad">한 번에</span>', '이 용어는 “어떤 방식으로 프로그램을 조작하는가?”를 설명합니다.')}
-          <div class="mini-terms">
-            <div class="mini-term"><b>GUI</b><span>= 그림으로 조작하는 화면</span><div class="term-art">🪟</div><p class="micro">예: 웹사이트, 일반 앱</p></div>
-            <div class="mini-term"><b>TUI</b><span>= 터미널 안에서 조작하는 화면</span><div class="terminal-mini">AGENT 1  WORKING<br>AGENT 2  IDLE<br>QA       PASS</div></div>
-            <div class="mini-term"><b>CLI</b><span>= 명령어를 입력하는 방식</span><div class="terminal-mini">$ git status<br>$ npm run dev<br>$ codex</div></div>
+          ${header('화면과 조작 방식', '같은 동작을 다루는 <span class="grad">세 가지 화면</span>', '조작 방식이 달라도 하는 일은 같습니다. 아래 셋 중 하나를 눌러보세요.')}
+          <div class="ui-grid" data-pick-group="ui">
+            <div class="ui-col">
+              <span class="demo-cap"><b>GUI</b> · 그림으로 · 예: 웹사이트, 일반 앱</span>
+              <div class="ui-pick" data-pick data-pick-label="GUI — 마우스로 창과 버튼을 누릅니다">
+                ${mockWindow({
+                  kind: 'app',
+                  name: '메모장',
+                  sub: 'GUI',
+                  pad: false,
+                  body: `
+                    <div class="mock-body pad" style="gap:7px">
+                      <div class="mock-row" style="background:linear-gradient(90deg,#f3f0ff,#fbfcff);border-color:#ded9ff">🔍 <span>메모 검색</span></div>
+                      <div class="mock-row">집 갈 길 메모<span class="tagp">어제</span></div>
+                      <div class="mock-row">장 보기 재료<span class="tagp">3일 전</span></div>
+                      <div class="mock-btn-row">
+                        <button class="btn ghost">삭제</button>
+                        <button class="btn" style="flex:1;justify-content:center">＋ 새 메모 저장</button>
+                      </div>
+                      <span class="mock-hint" style="text-align:center">버튼·창을 마우스로 누릅니다</span>
+                    </div>`
+                })}
+              </div>
+            </div>
+            <div class="ui-col">
+              <span class="demo-cap"><b>TUI</b> · 터미널 안의 UI · 예: git, htop</span>
+              <div class="ui-pick" data-pick data-pick-label="TUI — 키 선택으로 메뉴를 고릅니다">
+                ${termBlock({
+                  name: 'TUI · curses 화면',
+                  size: 'md',
+                  lines: [
+                    ...tuiBox({ name: '메모장', width: 26, rows: [{ text: '1 목록 보기' }, { text: '2 새 메모' }, { text: '3 저장', mark: true }] }),
+                    '선택> 3',
+                    '제목> 오늘 배운 것',
+                    { t: 'out', s: '● 저장 완료 (id 2)' }
+                  ]
+                })}
+              </div>
+            </div>
+            <div class="ui-col">
+              <span class="demo-cap"><b>CLI</b> · 명령어 · 예: npm, git, docker</span>
+              <div class="ui-pick" data-pick data-pick-label="CLI — 명령어를 직접 입력합니다">
+                ${termBlock({
+                  name: 'CLI · 셸 프롬프트',
+                  size: 'md',
+                  lang: 'sh',
+                  lines: [
+                    '$ note list',
+                    '  1  집 갈 길 메모',
+                    '$ note add --title "오늘 배운 것"',
+                    { t: 'out', s: '● 저장 완료 (id 2)' },
+                    '$ note list',
+                    '  1  집 갈 길 메모',
+                    '  2  오늘 배운 것   ← 방금 추가'
+                  ]
+                })}
+              </div>
+            </div>
           </div>
+          <div class="ui-echo">지금 누른 조작: <b data-echo="ui">위 세 칸 중 하나를 눌러보세요</b></div>
         </div>`,
     'planning-terms-a': () => `
         <div class="scene">
@@ -605,6 +878,64 @@
     if (target >= 0) gotoScene(target);
   }
 
+  // ---------------------------------------------------------------------------
+  // Primitive wiring: mock clicks drive the rail beside them.
+  //
+  // Timers are tracked in one list and cleared on every render, so navigating
+  // away mid-animation can never leave a stale step lighting up on the next
+  // scene. Nothing waits on transitionend, so the sequence still completes
+  // under prefers-reduced-motion, where every transition is disabled.
+  // ---------------------------------------------------------------------------
+  let railTimers = [];
+
+  const clearRail = () => {
+    railTimers.forEach(clearTimeout);
+    railTimers = [];
+  };
+
+  const runRail = (id) => {
+    clearRail();
+    const steps = [...stage.querySelectorAll(`[data-rail="${id}"] .rail-step`)];
+    if (!steps.length) return;
+    stage.querySelectorAll(`[data-rail="${id}"] .rail-step`).forEach((s) => s.classList.remove('on', 'done'));
+    stage.querySelectorAll(`[data-done="${id}"]`).forEach((el) => el.classList.remove('show'));
+    const button = stage.querySelector(`[data-run="${id}"]`);
+    button?.classList.add('running');
+
+    const gap = 620;
+    steps.forEach((s, i) => {
+      railTimers.push(setTimeout(() => {
+        s.classList.add('on');
+        if (i > 0) steps[i - 1].classList.add('done');
+      }, 200 + i * gap));
+    });
+    railTimers.push(setTimeout(() => {
+      steps.forEach((s) => s.classList.add('on', 'done'));
+      stage.querySelectorAll(`[data-done="${id}"]`).forEach((el) => el.classList.add('show'));
+      button?.classList.remove('running');
+    }, 200 + steps.length * gap));
+  };
+
+  const mountPrimitives = () => {
+    clearRail();
+    stage.querySelectorAll('[data-run]').forEach((button) => {
+      button.addEventListener('click', () => runRail(button.dataset.run));
+    });
+    stage.querySelectorAll('[data-pick-group]').forEach((group) => {
+      const name = group.dataset.pickGroup;
+      group.querySelectorAll('[data-pick]').forEach((item) => {
+        item.addEventListener('click', () => {
+          group.querySelectorAll('[data-pick]').forEach((other) => {
+            other.classList.toggle('picked', other === item);
+          });
+          stage.querySelectorAll(`[data-echo="${name}"]`).forEach((out) => {
+            out.textContent = item.dataset.pickLabel || '';
+          });
+        });
+      });
+    });
+  };
+
   function attachSceneInteractions(id) {
     if (id === 'project-form') {
       const button = document.getElementById('project-build');
@@ -625,6 +956,8 @@
         document.getElementById('auto-output').textContent = `${task}\n\n        ↓\n\n${worker}\n\n        ↓\n\n${result}`;
       });
     }
+
+    mountPrimitives();
   }
 
   function buildChapterGrid() {

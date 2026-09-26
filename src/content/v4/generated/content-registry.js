@@ -82,8 +82,8 @@
       "chapter": "agent",
       "title": "AI와 Agent 차이",
       "narration": "AI는 질문에 답하지만, Agent는 목표를 받고 도구를 선택해 실행한 뒤 결과를 확인하고 필요하면 반복합니다.",
-      "cue": "포함관계 설명보다 “행동 루프”를 먼저 보여주세요. AI Agent는 AI를 이용해 여러 단계의 일을 수행하는 시스템이라고 설명하면 됩니다.",
-      "extra": "AI Agent는 AI의 한 형태/활용 구조입니다. 모든 AI가 Agent처럼 행동하는 것은 아닙니다.",
+      "cue": "Agent가 왜 ‘목표 → 도구 → 확인 → 반복’으로 도는지, 이 강의에서 실제로 겪은 실패 하나로 설명하세요. 아래 시뮬레이션은 그 실패를 그대로 재현합니다. 확인 단계를 빼면 무엇이 깨지는지 보여주는 게 핵심입니다.",
+      "extra": "AI는 자주 틀립니다. 그래서 ‘되돌릴 수 있는 기록’과 ‘확인하는 순간’이 같이 있어야 안전합니다. Git은 여기서 나옵니다.",
       "simulations": [
         "chat-agent",
         "ai-agent"
@@ -116,8 +116,8 @@
       "chapter": "terms",
       "title": "하나의 서비스가 연결되는 구조",
       "narration": "사용자 행동 하나는 프론트엔드에서 API로 요청하고, 백엔드가 처리해 데이터베이스에 저장하는 과정입니다.",
-      "cue": "로그인이나 게시글 작성 같은 실제 행동 하나를 예로 들어 화살표를 따라가면 됩니다.",
-      "extra": "예: “게시글 저장” → 화면에서 입력 → API 요청 → 백엔드 처리 → DB 저장.",
+      "cue": "슬라이드의 저장하기 버튼을 실제로 눌러보게 하세요. 클릭 한 번 뒤 오른쪽 4단계가 차례로 켜지며, 각 단계마다 실제로 도는 코드가 그대로 나옵니다.",
+      "extra": "추상적인 ‘화면 → 서버 → DB’ 설명 대신, 내가 누른 버튼 하나가 네 번의 일로 확장되는 장면으로 보여주세요.",
       "simulations": [
         "frontend-api-backend"
       ]
@@ -128,8 +128,8 @@
       "chapter": "terms",
       "title": "GUI · TUI · CLI",
       "narration": "GUI는 그림으로, TUI는 터미널 안에서, CLI는 명령어로 조작하는 방식입니다.",
-      "cue": "같은 프로그램도 화면을 어떻게 조작하느냐에 따라 표현 방식이 달라질 수 있다는 정도면 충분합니다.",
-      "extra": "GUI=그래픽 화면, TUI=터미널 안의 UI, CLI=명령어 입력 방식."
+      "cue": "세 칸이 전부 같은 동작(메모 저장)이라는 점을 먼저 말하세요. 그 다음 표현만 다르다는 걸 보여주면 용어가 외워집니다. 아무 칸이나 눌러보라고 하세요.",
+      "extra": "실제 제품에서도 셋이 섞여 있습니다. VS Code는 GUI이면서 내부적으로 CLI를 호출합니다."
     },
     {
       "id": "planning-terms-a",
@@ -262,47 +262,54 @@
     "ai-agent": {
       "schema": "jucoding-simulation",
       "id": "ai-agent",
-      "title": "목표 → Agent → 도구 → 확인 → 반복 → 완료",
-      "subtitle": "Agent는 말만 하지 않고 행동 루프를 돌립니다",
+      "title": "AI가 망쳤을 때 · 되돌리는 루프",
+      "subtitle": "확인하지 않으면 그대로 남고, 확인하면 되돌립니다",
       "sceneId": "ai-agent",
       "nodes": [
         {
           "id": "goal",
+          "row": 0,
           "label": "목표",
           "icon": "🎯",
-          "note": "“이걸 완성해줘”",
+          "note": "부록 이미지 16장 추가",
           "emphasis": true
         },
         {
           "id": "agent",
-          "label": "Agent",
+          "row": 0,
+          "label": "AI가 실행",
           "icon": "🤖",
-          "note": "다음 행동 결정",
+          "note": "파일을 직접 고침",
           "emphasis": true
         },
         {
-          "id": "tool",
-          "label": "도구 사용",
-          "icon": "🛠️",
-          "note": "Worker가 실제 실행"
-        },
-        {
           "id": "check",
-          "label": "확인",
-          "icon": "✅",
-          "note": "결과가 맞는지 검토"
+          "row": 0,
+          "label": "결과 확인",
+          "icon": "🔍",
+          "note": "16장이 전부 사라짐"
         },
         {
-          "id": "loop",
-          "label": "반복",
+          "id": "git",
+          "row": 1,
+          "label": "되돌리기",
+          "icon": "↩️",
+          "note": "Git으로 이전 상태 복구",
+          "emphasis": true
+        },
+        {
+          "id": "retry",
+          "row": 1,
+          "label": "다시 시도",
           "icon": "🔁",
-          "note": "부족하면 다시 시도"
+          "note": "원인을 바꿔 재실행"
         },
         {
           "id": "done",
+          "row": 1,
           "label": "완료",
-          "icon": "🏆",
-          "note": "목표 달성"
+          "icon": "✅",
+          "note": "16장 모두 정상"
         }
       ],
       "edges": [
@@ -314,137 +321,172 @@
         {
           "id": "e2",
           "from": "agent",
-          "to": "tool"
-        },
-        {
-          "id": "e3",
-          "from": "tool",
           "to": "check"
         },
         {
-          "id": "e4",
+          "id": "e3",
           "from": "check",
-          "to": "loop"
+          "to": "git"
+        },
+        {
+          "id": "e4",
+          "from": "git",
+          "to": "retry"
         },
         {
           "id": "e5",
-          "from": "loop",
-          "to": "agent",
+          "from": "retry",
+          "to": "check",
           "curve": true
         },
         {
           "id": "e6",
-          "from": "loop",
+          "from": "retry",
           "to": "done"
         }
       ],
       "steps": [
         {
           "id": "s1",
-          "label": "목표 카드 등장",
+          "label": "목표 주기",
           "target": "goal",
           "action": "show",
           "duration": 800,
-          "narration": "사용자가 목표를 줍니다. “이걸 완성해줘.”"
+          "narration": "“부록에 이미지 16장을 추가해줘.” 사람이 목적을 말로 줍니다."
         },
         {
           "id": "s2",
-          "label": "Agent 활성화",
+          "label": "AI가 받음",
           "target": "agent",
           "action": "connect",
-          "duration": 800,
-          "narration": "Agent가 목표를 받습니다."
+          "from": "goal",
+          "duration": 700,
+          "narration": "AI가 목표를 받습니다."
         },
         {
           "id": "s3",
-          "label": "Agent 판단",
+          "label": "AI가 파일 수정",
           "target": "agent",
           "action": "activate",
-          "duration": 1000,
-          "narration": "Agent가 목표를 이해하고 다음 행동을 정합니다."
+          "duration": 1100,
+          "narration": "AI는 조언만 하지 않고 파일을 직접 고칩니다. 이게 AI와 Agent의 차이입니다."
         },
         {
           "id": "s4",
-          "label": "도구 연결",
-          "target": "tool",
-          "action": "connect",
+          "label": "AI가 '완료'라고 말함",
+          "target": "agent",
+          "action": "complete",
           "duration": 800,
-          "narration": "Agent가 필요한 도구를 고릅니다."
+          "narration": "“다 했습니다.” 실행은 끝났다고 말합니다. 그런데 아직 아무것도 확인하지 않았습니다."
         },
         {
           "id": "s5",
-          "label": "Worker 실행",
-          "target": "tool",
-          "action": "activate",
-          "duration": 1100,
-          "narration": "Worker가 선택한 도구를 실제로 실행합니다."
+          "label": "결과를 확인하러 감",
+          "target": "check",
+          "action": "connect",
+          "from": "agent",
+          "duration": 700,
+          "narration": "이 다음 단계가 오히려 중요합니다."
         },
         {
           "id": "s6",
-          "label": "도구 실행 완료",
-          "target": "tool",
-          "action": "complete",
-          "duration": 500,
-          "narration": "도구 실행이 끝났습니다."
+          "label": "16장이 사라짐",
+          "target": "check",
+          "action": "activate",
+          "duration": 1200,
+          "narration": "확인해 보니 이미지 16장이 전부 사라졌습니다. AI가 고친 곳이 아니라 다른 곳을 건드린 것입니다."
         },
         {
           "id": "s7",
-          "label": "확인 단계",
-          "target": "check",
+          "label": "되돌리기로 이동",
+          "target": "git",
           "action": "connect",
-          "duration": 800,
-          "narration": "Agent가 실행 결과를 확인합니다."
+          "from": "check",
+          "duration": 700,
+          "narration": "그래서 되돌립니다. 기록이 남아 있어야 돌아갈 수 있습니다."
         },
         {
           "id": "s8",
-          "label": "결과 검토",
-          "target": "check",
+          "label": "Git으로 복구",
+          "target": "git",
           "action": "activate",
-          "duration": 1000,
-          "narration": "결과가 목표에 맞는지 검토합니다."
+          "duration": 1100,
+          "narration": "Git이 작업 전 상태를 그대로 되돌려 줍니다. 이게 Git의 본래 목적입니다."
         },
         {
           "id": "s9",
-          "label": "반복 단계",
-          "target": "loop",
-          "action": "connect",
-          "from": "check",
-          "duration": 800,
-          "narration": "아직 부족하면 도구를 다시 사용합니다."
+          "label": "원래 상태로 복구",
+          "target": "git",
+          "action": "complete",
+          "duration": 700,
+          "narration": "복구 완료. 몇 초면 충분합니다."
         },
         {
           "id": "s10",
-          "label": "반복 실행",
-          "target": "loop",
-          "action": "activate",
-          "duration": 1000,
-          "narration": "목표가 만족될 때까지 같은 루프를 반복합니다."
+          "label": "원인을 바꿔 다시 시도",
+          "target": "retry",
+          "action": "connect",
+          "from": "git",
+          "duration": 700,
+          "narration": "같은 요청을 그대로 다시 하면 같은 문제가 생깁니다. 원인을 바꿔 줍니다."
         },
         {
           "id": "s11",
-          "label": "Agent로 되돌아가기",
-          "target": "agent",
-          "action": "connect",
-          "from": "loop",
+          "label": "재실행",
+          "target": "retry",
+          "action": "activate",
           "duration": 1000,
-          "narration": "결과가 목표에 안 맞으면 Agent로 되돌아가 다음 행동을 정합니다."
+          "narration": "이번엔 대상을 경로가 아니라 파일 이름으로 지정해서 다시 실행합니다."
         },
         {
           "id": "s12",
-          "label": "완료 단계",
-          "target": "done",
+          "label": "다시 확인",
+          "target": "check",
           "action": "connect",
-          "from": "loop",
+          "from": "retry",
           "duration": 800,
-          "narration": "목표를 달성했다면 반복을 끝내고 마칩니다."
+          "narration": "또 확인합니다. 이 왕복이 반복입니다. 한 번만 확인하고 끝내면 안 됩니다."
         },
         {
           "id": "s13",
-          "label": "완료 표시",
+          "label": "이번엔 정상",
+          "target": "check",
+          "action": "complete",
+          "duration": 700,
+          "narration": "16장이 모두 정상으로 들어갔습니다."
+        },
+        {
+          "id": "s14",
+          "label": "완료로 이동",
+          "target": "done",
+          "action": "connect",
+          "from": "retry",
+          "duration": 700,
+          "narration": "목표를 달성했습니다."
+        },
+        {
+          "id": "s15",
+          "label": "목표 달성",
           "target": "done",
           "action": "complete",
-          "duration": 800,
-          "narration": "목표 → 도구 → 확인 → 반복 → 완료 루프가 끝났습니다."
+          "duration": 700,
+          "narration": "완료."
+        },
+        {
+          "id": "s16",
+          "label": "목표 달성 확인",
+          "target": "goal",
+          "action": "complete",
+          "duration": 500,
+          "narration": "처음의 목표를 그대로 만족했습니다."
+        },
+        {
+          "id": "s17",
+          "label": "반복 종료",
+          "target": "retry",
+          "action": "complete",
+          "duration": 900,
+          "narration": "핵심은 이겁니다. AI는 자주 틀립니다. 그래서 확인 단계와 되돌릴 수 있는 기록이 함께 있어야 합니다."
         }
       ]
     },
