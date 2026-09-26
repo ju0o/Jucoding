@@ -76,6 +76,8 @@ Archive/
 
 지원 형식: `.md` `.txt` `.json` `.png` `.jpg` `.jpeg` `.webp` (`.pdf` 는 예정)
 
+이미지를 넣으면 변경안 화면에 **그림이 그대로 보입니다.** 붙일 장면도 직접 고를 수 있습니다.
+
 자료를 넣고 `새 자료 확인` → `변경안 만들기` 를 누르면 **변경안 초안**이 만들어집니다. 강의는 바뀌지 않습니다.
 
 ```text
@@ -103,7 +105,7 @@ npm start
 ```bash
 npm run check          # 31 checks — content, simulations, archive, packaging
 npm run smoke:v4       # 29 checks — deck, simulation matrix, layout, offline
-npm run smoke:v4:shell # 41 checks — archive approval flow
+npm run smoke:v4:shell # 51 checks — archive approval flow
 ```
 
 | 명령 | 검사 대상 |

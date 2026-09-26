@@ -96,6 +96,25 @@ run by `src/main/v4-archive.js`. Supported: `.md .txt .json .png .jpg .jpeg
 .webp`. `.pdf` is surfaced as **PDF 지원 예정** because V1 has no PDF text
 extraction.
 
+### Adding an image to a lecture
+
+1. Put the image in `Archive/inbox/` (`.png .jpg .jpeg .webp`).
+2. `자료실 > 새 자료 확인` → `변경안 만들기`.
+3. The review screen shows **the picture itself**, a title field, a caption
+   field, and a dropdown of all 21 scenes.
+4. Pick the scene, then `이 변경 적용` and `승인한 변경만 적용`.
+
+The filename only picks a *default* scene, and the reason line shows the
+candidates it considered. That is deliberate: a short filename scored against a
+full sentence almost never identifies the right scene, and guessing silently is
+worse than asking. Images are therefore never discarded — every image in the
+inbox produces a reviewable change.
+
+Applied images are inlined into the lecture as `data:` URLs by the main process,
+because the renderer is sandboxed and cannot read the user's Documents folder.
+No custom protocol is registered, so the renderer gets no filesystem access and
+the deck's CSP is unchanged.
+
 Flow, enforced in this order:
 
 ```
@@ -166,9 +185,9 @@ The V4 home is unchanged, including its seven sections.
 ## H. QA
 
 ```bash
-npm run check          # 31 checks: content, simulations, archive, packaging
+npm run check          # 32 checks: content, simulations, archive, packaging
 npm run smoke:v4       # 29 checks: deck, simulations, layout, offline
-npm run smoke:v4:shell # 41 checks (40 assert + 1 needs a visible window): archive approval flow
+npm run smoke:v4:shell # 51 checks (50 assert + 1 needs a visible window): archive approval flow and images
 ```
 
 All three pass. Both smoke suites run on a **hidden window by default** and never

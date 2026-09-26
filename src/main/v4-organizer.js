@@ -191,29 +191,35 @@ function localPropose({ materials, scenes }) {
 
   for (const material of materials) {
     if (material.kind === 'image') {
-      // Images become proposed lecture visuals on the closest matching scene.
-      let best = null;
-      let bestScore = 0;
-      const grams = trigrams(material.name.replace(/[-_]/g, ' '));
-      for (const scene of scenes) {
-        const score = similarity(grams, sceneGrams.get(scene.id));
-        if (score > bestScore) {
-          bestScore = score;
-          best = scene;
-        }
-      }
+      // An image is never dropped. The filename only picks a DEFAULT scene, and
+      // a short filename scored against a full sentence almost never clears the
+      // similarity threshold, so gating on it silently discarded every image the
+      // instructor had actually placed in the inbox. The instructor chooses the
+      // real target in the preview instead.
+      const grams = trigrams(material.name.replace(/[-_.]+/g, ' '));
+      const ranked = scenes
+        .map((scene) => ({ scene, score: similarity(grams, sceneGrams.get(scene.id)) }))
+        .sort((a, b) => b.score - a.score);
+      const best = ranked[0];
       if (!best) continue;
-      const confidence = confidenceFor(bestScore);
-      if (!confidence) continue;
+      const confidence = confidenceFor(best.score) || CONFIDENCE.LOW;
+      const runnersUp = ranked.slice(1, 4)
+        .filter((r) => r.score > 0)
+        .map((r) => `${r.scene.title}(${(r.score * 100).toFixed(0)}%)`);
       push(withSource({
-        sceneId: best.id,
+        sceneId: best.scene.id,
         action: 'asset',
         field: 'assets',
         before: '',
         after: material.name,
         assetPath: material.archivePath,
-        reason: `이미지 파일명("${material.name}")이 "${best.title}" 장면 내용과 가장 유사합니다.`,
-        confidence
+        mime: material.mime || '',
+        reason: `이미지 "${material.name}"을(를) "${best.scene.title}" 장면의 강의 자료로 추가합니다.`
+          + ` 파일명 기준 추정 일치도 ${(best.score * 100).toFixed(0)}%.`
+          + (runnersUp.length ? ` 다른 후보: ${runnersUp.join(', ')}.` : '')
+          + ' 이미지가 붙을 장면은 검토 화면에서 직접 고를 수 있습니다.',
+        confidence,
+        score: Number(best.score.toFixed(4))
       }, material));
       continue;
     }

@@ -123,6 +123,14 @@ button{color:inherit}
 .change-actions .is-picked{outline:2px solid #6a50ec;outline-offset:2px}
 .change-actions .is-muted{opacity:.5}
 .change-actions .is-muted:hover{opacity:1}
+.change-asset{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
+.change-asset-preview{width:190px;max-width:100%;height:118px;object-fit:contain;border:1px solid var(--line);border-radius:13px;background:#f4f6ff}
+.change-asset-preview.is-blank{display:grid;place-items:center;font-size:11px;color:#8a93ad;text-align:center;padding:8px}
+.change-asset-fields{display:grid;gap:7px;min-width:0}
+.change-asset-fields label{display:block;font-size:10.5px;font-weight:850;color:#8a93ad;letter-spacing:.04em}
+.change-asset-fields select,.change-asset-fields input{width:100%;margin-top:4px;border:1px solid var(--line);border-radius:11px;background:#fff;padding:8px 10px;font:12px/1.5 inherit;color:#39425f;outline:none}
+.change-asset-fields select:focus,.change-asset-fields input:focus{border-color:#8e78ff;box-shadow:0 0 0 3px rgba(117,92,255,.09)}
+@media(max-width:1100px){.change-asset{grid-template-columns:1fr}}
 .proposal-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--line)}
 .proposal-summary{font-size:12px;font-weight:850;color:#5b3df0;margin-right:auto}
 .proposal-list{display:grid;gap:8px}

@@ -355,31 +355,62 @@
       <span class="chip">생성기 ${esc(proposal.provider ? proposal.provider.label : '-')}</span>
       <span class="chip">변경 후보 ${proposal.changes.length}건</span>
       <span class="chip">원자료 ${proposal.sourceFiles.length}개</span>`;
+    const sceneOptions = proposal.sceneOptions || [];
     proposalEls.changes.innerHTML = proposal.changes.length
-      ? proposal.changes.map((change) => `
-        <article class="change-card" data-change="${esc(change.id)}" data-decision="keep">
-          <div class="change-head">
-            <span class="change-scene">${esc(change.chapterLabel ? `${change.chapterLabel} · ` : '')}${esc(change.sceneTitle || change.sceneId)}</span>
-            <span class="change-tag change-${esc(change.action)}">${esc(ACTION_LABEL[change.action] || change.action)}</span>
-            <span class="change-conf conf-${esc(change.confidence)}">일치도 ${esc(CONFIDENCE_LABEL[change.confidence] || change.confidence)}</span>
-            <span class="change-source">${esc(change.sourceName || '')}</span>
-          </div>
-          <p class="change-reason">${esc(change.reason)}</p>
-          <div class="change-diff">
-            <div class="change-before"><b>현재</b><p>${esc(change.before) || '<em>없음</em>'}</p></div>
-            <div class="change-after">
-              <b>제안 <span class="change-edit-hint">직접 수정할 수 있습니다</span></b>
-              <textarea data-after rows="3">${esc(change.after)}</textarea>
-            </div>
-          </div>
-          <div class="change-actions">
-            <button type="button" class="ghost small" data-decide="keep">기존 유지</button>
-            <button type="button" class="cta small" data-decide="apply">이 변경 적용</button>
-          </div>
-        </article>`).join('')
+      ? proposal.changes.map((change) => renderChangeCard(change, sceneOptions)).join('')
       : '<p class="meta-line">이 자료로부터 만든 변경 후보가 없습니다. 다른 자료를 넣어보세요.</p>';
     updateProposalSummary();
     proposalEls.status.textContent = '기본값은 "기존 유지"입니다. 반영할 변경만 눌러 표시한 뒤 적용하세요.';
+  }
+
+  function renderChangeCard(change, sceneOptions) {
+    const isAsset = change.action === 'asset';
+    // An image proposal only guesses its scene from the filename, so the card
+    // shows the picture and lets the instructor place it.
+    const assetBody = isAsset ? `
+      <div class="change-asset">
+        ${change.previewDataUrl
+          ? `<img class="change-asset-preview" alt="${esc(change.after)}" src="${esc(change.previewDataUrl)}">`
+          : '<div class="change-asset-preview is-blank">미리보기를 표시할 수 없습니다</div>'}
+        <div class="change-asset-fields">
+          <label>이미지를 붙일 장면
+            <select data-scene-pick>
+              ${sceneOptions.map((s) => `
+                <option value="${esc(s.id)}"${s.id === change.sceneId ? ' selected' : ''}>${esc(s.chapterLabel ? `${s.chapterLabel} · ` : '')}${esc(s.title)}</option>
+              `).join('')}
+            </select>
+          </label>
+          <label>자료 이름
+            <input type="text" data-asset-title value="${esc(change.after)}">
+          </label>
+          <label>설명
+            <input type="text" data-asset-caption placeholder="이 그림을 왜 보여주는지 한 줄로">
+          </label>
+        </div>
+      </div>` : `
+      <div class="change-diff">
+        <div class="change-before"><b>현재</b><p>${esc(change.before) || '<em>없음</em>'}</p></div>
+        <div class="change-after">
+          <b>제안 <span class="change-edit-hint">직접 수정할 수 있습니다</span></b>
+          <textarea data-after rows="3">${esc(change.after)}</textarea>
+        </div>
+      </div>`;
+
+    return `
+      <article class="change-card${isAsset ? ' is-asset' : ''}" data-change="${esc(change.id)}" data-decision="keep" data-action="${esc(change.action)}">
+        <div class="change-head">
+          <span class="change-scene">${esc(change.chapterLabel ? `${change.chapterLabel} · ` : '')}${esc(change.sceneTitle || change.sceneId)}</span>
+          <span class="change-tag change-${esc(change.action)}">${esc(ACTION_LABEL[change.action] || change.action)}</span>
+          <span class="change-conf conf-${esc(change.confidence)}">일치도 ${esc(CONFIDENCE_LABEL[change.confidence] || change.confidence)}</span>
+          <span class="change-source">${esc(change.sourceName || '')}</span>
+        </div>
+        <p class="change-reason">${esc(change.reason)}</p>
+        ${assetBody}
+        <div class="change-actions">
+          <button type="button" class="ghost small" data-decide="keep">기존 유지</button>
+          <button type="button" class="cta small" data-decide="apply">이 변경 적용</button>
+        </div>
+      </article>`;
   }
 
   // Marks which decision is currently selected on a change card. Both buttons
@@ -460,11 +491,22 @@
     const decisions = [...proposalEls.changes.querySelectorAll('.change-card')].map((card) => {
       const id = card.dataset.change;
       const source = currentProposal.changes.find((c) => c.id === id) || {};
-      return {
+      const base = {
         id,
         decision: card.dataset.decision,
-        // The applied value is whatever the instructor left in the box.
+        // The applied text is whatever the instructor left in the box.
         after: card.querySelector('[data-after]') ? card.querySelector('[data-after]').value : source.after
+      };
+      if (card.dataset.action !== 'asset') return base;
+      const pick = card.querySelector('[data-scene-pick]');
+      const titleInput = card.querySelector('[data-asset-title]');
+      const captionInput = card.querySelector('[data-asset-caption]');
+      return {
+        ...base,
+        // The scene the instructor chose overrides the filename-based guess.
+        sceneId: pick ? pick.value : source.sceneId,
+        title: titleInput ? titleInput.value : source.after,
+        caption: captionInput ? captionInput.value : ''
       };
     });
     document.getElementById('btn-proposal-apply').disabled = true;

@@ -356,11 +356,13 @@
 
   const archiveAssetFigure = (scene) => {
     const asset = scene.archiveAsset;
-    if (!asset || !asset.archivePath) return '';
-    const src = window.vibeCodingApp && typeof window.vibeCodingApp.archiveUrl === 'function'
-      ? window.vibeCodingApp.archiveUrl(asset.archivePath)
-      : '';
-    if (!src) return '';
+    if (!asset) return '';
+    // Approved images arrive inlined as data: URLs by the main process, because
+    // the renderer cannot read the user's Documents folder.
+    const src = asset.dataUrl || '';
+    if (!src) {
+      return `<p class="archive-asset-missing">자료함 자료 “${escapeHtml(asset.title || '')}”을(를) 표시할 수 없습니다. Archive 의 applied 폴더에서 파일을 확인하세요.</p>`;
+    }
     return `
       <figure class="v4-asset-figure v4-asset-hero">
         <img src="${escapeHtml(src)}" alt="${escapeHtml(asset.title || '자료함 자료')}"

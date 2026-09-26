@@ -64,11 +64,6 @@ contextBridge.exposeInMainWorld('vibeCodingApp', {
   getLectureOverrides: () => ipcRenderer.invoke('archive-overrides'),
   getOrganizerStatus: () => ipcRenderer.invoke('organizer-status'),
 
-  // URL for an image that lives in the user's Archive folder. The custom
-  // scheme only resolves paths inside the Archive root.
-  archiveUrl: (relativePath) => 'jucoding-archive://material/'
-    + String(relativePath || '').split('/').filter(Boolean).map(encodeURIComponent).join('/'),
-
   // 개발/패키징 여부
   isDev: () => ipcRenderer.invoke('is-dev'),
 

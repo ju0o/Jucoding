@@ -18,12 +18,6 @@ const organizer = require('./v4-organizer');
 
 let homeWindow;
 
-// Must run before app is ready so the renderer may load jucoding-archive://
-// images. The scheme is registered for a narrow purpose only: serving files
-// that live inside the user's Archive folder, which the sandboxed renderer
-// cannot reach over file://.
-archive.registerArchiveScheme();
-
 function getOptionalIconPath() {
   const iconPath = path.join(__dirname, '../../build/icon.ico');
   return fs.existsSync(iconPath) ? iconPath : undefined;
@@ -255,7 +249,11 @@ ipcMain.handle('archive-apply', async (_event, proposalId, decisions) => {
 
 ipcMain.handle('archive-overrides', async () => {
   try {
-    return { ok: true, overrides: await archive.readOverrides() };
+    // Approved images are inlined as data: URLs. The renderer is sandboxed and
+    // cannot read the user's Documents folder over file://, and the deck's CSP
+    // already allows data: in img-src, so this needs no custom scheme and no
+    // filesystem access in the renderer.
+    return { ok: true, overrides: await archive.resolveAssetUrls(await archive.readOverrides()) };
   } catch (err) {
     return { ok: false, message: err.message };
   }
@@ -268,7 +266,6 @@ ipcMain.handle('organizer-status', () => organizer.status());
 // NOT registered here: the V4 default runtime does not load V3 content.
 
 app.whenReady().then(async () => {
-  archive.registerArchiveProtocol();
   // Create the external Archive tree up front so the button works on first run
   // even before the instructor opens the 자료실 section.
   await archive.ensureArchive().catch(() => { /* surfaced later via archive-status */ });

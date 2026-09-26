@@ -42,7 +42,6 @@ app.setPath('userData', path.join(sandbox, 'userData'));
 const VISIBLE = process.env.JUCODING_QA_VISIBLE === '1' || process.argv.includes('--visible');
 
 const archive = require('../src/main/v4-archive');
-archive.registerArchiveScheme();
 
 const store = {};
 let win = null;
@@ -72,7 +71,7 @@ ipcMain.handle('archive-proposal', async (_e, id) => {
   return proposal ? { ok: true, proposal } : { ok: false, message: '없음' };
 });
 ipcMain.handle('archive-apply', (_e, id, decisions) => archive.applyProposal(id, decisions));
-ipcMain.handle('archive-overrides', async () => ({ ok: true, overrides: await archive.readOverrides() }));
+ipcMain.handle('archive-overrides', async () => ({ ok: true, overrides: await archive.resolveAssetUrls(await archive.readOverrides()) }));
 ipcMain.handle('organizer-status', () => require('../src/main/v4-organizer').status());
 
 function check(results, name, ok, detail) {
@@ -161,7 +160,6 @@ app.whenReady().then(async () => {
   try {
     // ------------------------------------------- 13. Archive folder creation ---
     const beforeLaunch = fs.existsSync(archiveRoot);
-    archive.registerArchiveProtocol();
     await archive.ensureArchive(); mark('archive created');
     const tree = archive.SUBFOLDERS.filter((name) => fs.existsSync(path.join(archiveRoot, name)));
     check(results, 'qa13_archiveFoldersCreated',
@@ -264,6 +262,7 @@ app.whenReady().then(async () => {
         await sleep(1500);
         const cards = [...document.querySelectorAll('#proposal-changes .change-card')].map((c) => ({
           id: c.dataset.change,
+          action: c.dataset.action,
           decision: c.dataset.decision,
           pickedKeep: c.querySelectorAll('[data-decide="keep"].is-picked').length,
           pickedApply: c.querySelectorAll('[data-decide="apply"].is-picked').length,
@@ -271,7 +270,8 @@ app.whenReady().then(async () => {
           tag: c.querySelector('.change-tag')?.textContent || '',
           conf: c.querySelector('.change-conf')?.textContent || '',
           before: c.querySelector('.change-before p')?.textContent || '',
-          after: c.querySelector('[data-after]')?.value || ''
+          after: (c.querySelector('[data-after]') || c.querySelector('[data-asset-title]'))?.value || '',
+          sceneOptions: c.querySelectorAll('[data-scene-pick] option').length
         }));
         return {
           open: Boolean(document.querySelector('#proposal-dialog')?.open),
@@ -284,9 +284,14 @@ app.whenReady().then(async () => {
         };
       })()
     `);
+    // An asset card has no "before" text (it attaches a picture rather than
+    // replacing copy), so only text changes are required to show a diff.
     check(results, 'qa17_previewShown',
-      preview.open && preview.count > 0 && preview.cards.every((c) => c.before && c.after && c.scene && c.conf),
-      { count: preview.count, meta: preview.meta });
+      preview.open
+      && preview.count > 0
+      && preview.cards.every((c) => c.after && c.scene && c.conf
+        && (c.action === 'asset' || c.before)),
+      { count: preview.count, meta: preview.meta, actions: preview.cards.map((c) => c.action) });
     check(results, 'qa17_defaultsToKeep',
       preview.cards.every((c) => c.decision === 'keep') && preview.applyDisabled === true,
       { decisions: preview.cards.map((c) => c.decision), summary: preview.summary });
@@ -294,6 +299,9 @@ app.whenReady().then(async () => {
     check(results, 'qa17_selectedDecisionIsVisible',
       preview.cards.every((c) => c.pickedKeep === 1 && c.pickedApply === 0),
       preview.cards.map((c) => ({ keep: c.pickedKeep, apply: c.pickedApply })));
+    check(results, 'qa17_imageCardHasScenePicker',
+      preview.cards.filter((c) => c.action === 'asset').every((c) => c.sceneOptions >= 21),
+      preview.cards.filter((c) => c.action === 'asset').map((c) => c.sceneOptions));
 
     mark('preview ok');
     // ------------------------------- 18. reject everything -> no change ------
@@ -345,7 +353,10 @@ app.whenReady().then(async () => {
         // Approve candidates that target DIFFERENT scenes, and hand-edit one of
         // them. Two changes to the same field would legitimately overwrite each
         // other, which would make the manual-edit assertion meaningless.
-        const cards = [...document.querySelectorAll('#proposal-changes .change-card')];
+        // Text changes only: an image card has a scene picker and a title field
+        // instead of a free-text editor, and is covered by the qa22_* checks.
+        const cards = [...document.querySelectorAll('#proposal-changes .change-card')]
+          .filter((c) => c.dataset.action !== 'asset');
         const sceneOf = (c) => (c.querySelector('.change-scene')?.textContent || '');
         // Two candidates can target the same scene+field, in which case the last
         // approved one legitimately wins. To make both assertions meaningful,
@@ -518,6 +529,50 @@ app.whenReady().then(async () => {
         { applied: appliedNow, reviewed: reviewedNow });
     }
 
+    // ------------------- regression: an image reaches a lecture scene --------
+    // An image used to be dropped entirely: the filename-vs-sentence similarity
+    // never cleared the confidence threshold, so propose() returned no change
+    // for any picture. Images must never be discarded, and the instructor picks
+    // the scene.
+    fs.copyFileSync(
+      path.join(root, 'src', 'assets', 'lecture', 'v4', 'beginner-dev-terms.webp'),
+      path.join(archiveRoot, 'inbox', 'zzz-의도치않은파일명.webp')
+    );
+    const imgProposal = await archive.propose(['zzz-의도치않은파일명.webp']);
+    const imgChanges = imgProposal.ok ? imgProposal.proposal.changes : [];
+    check(results, 'qa22_imageProducesAssetChange',
+      imgChanges.length === 1 && imgChanges[0].action === 'asset',
+      imgChanges.map((c) => ({ action: c.action, scene: c.sceneId, source: c.sourceName })));
+    check(results, 'qa22_imageCarriesSceneOptions',
+      Array.isArray(imgProposal.proposal.sceneOptions) && imgProposal.proposal.sceneOptions.length === 21,
+      (imgProposal.proposal.sceneOptions || []).length);
+    check(results, 'qa22_imageHasPreview',
+      typeof imgChanges[0]?.previewDataUrl === 'string' && imgChanges[0].previewDataUrl.startsWith('data:image/'),
+      (imgChanges[0]?.previewDataUrl || '').slice(0, 24));
+    if (imgChanges.length) {
+      // Place it on a scene the filename could never have guessed.
+      const pickedScene = 'git';
+      const imgApply = await archive.applyProposal(imgProposal.proposal.id, [{
+        id: imgChanges[0].id,
+        decision: 'apply',
+        sceneId: pickedScene,
+        title: 'Git 기록 정리도',
+        caption: '수업 중 함께 보는 도표'
+      }]);
+      const imgOverrides = await archive.readOverrides();
+      check(results, 'qa22_imageHonoursChosenScene',
+        imgApply.ok === true
+        && imgOverrides.assets[pickedScene]
+        && imgOverrides.assets[pickedScene].archivePath.startsWith('applied/')
+        && imgOverrides.assets[pickedScene].caption === '수업 중 함께 보는 도표',
+        imgOverrides.assets);
+      const resolved = await archive.resolveAssetUrls(await archive.readOverrides());
+      check(results, 'qa22_imageInlinedAsDataUrl',
+        typeof resolved.assets[pickedScene]?.dataUrl === 'string'
+        && resolved.assets[pickedScene].dataUrl.startsWith('data:image/webp;base64,'),
+        (resolved.assets[pickedScene]?.dataUrl || '').slice(0, 24));
+    }
+
     // ------------------------------- 18b. reject-only material -> reviewed ---
     // Everything was approved above, so seed a second, unrelated material and
     // approve none of its candidates.
@@ -576,6 +631,36 @@ app.whenReady().then(async () => {
       && lecture.appliedOverrideCount > 0
       && lecture.noticeShown,
       lecture);
+
+    // The approved image must actually decode on the scene it was placed on.
+    const imageScene = await win.webContents.executeJavaScript(`
+      (() => {
+        const api = window.__jucodingV4;
+        const idx = api.scenes.findIndex((s) => s.id === 'git');
+        api.gotoScene(idx);
+        return idx;
+      })()
+    `);
+    await wait(900);
+    const imageRender = await win.webContents.executeJavaScript(`
+      (() => {
+        const imgs = [...document.querySelectorAll('#stage img[data-asset-full^="data:image/"]')];
+        return {
+          sceneIndex: window.__jucodingV4.sceneIndex,
+          count: imgs.length,
+          natural: imgs.map((i) => i.naturalWidth),
+          caption: imgs.map((i) => i.dataset.assetCap),
+          missingNotice: document.querySelectorAll('#stage .archive-asset-missing').length
+        };
+      })()
+    `);
+    check(results, 'qa30_archiveImageRendersInLecture',
+      imageRender.sceneIndex === imageScene
+      && imageRender.count === 1
+      && imageRender.natural[0] > 0
+      && imageRender.caption[0] === '수업 중 함께 보는 도표'
+      && imageRender.missingNotice === 0,
+      imageRender);
 
     // ------------------------------------ existing home behaviour regression ---
     await win.webContents.executeJavaScript(`document.querySelector('#btn-home')?.click()`);

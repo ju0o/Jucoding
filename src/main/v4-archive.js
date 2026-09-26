@@ -38,7 +38,15 @@ const PLANNED = [{ ext: '.pdf', label: 'PDF 지원 예정' }];
 const MAX_TEXT_BYTES = 512 * 1024;
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 
-const SCHEME = 'jucoding-archive';
+const MAX_INLINE_BYTES = 8 * 1024 * 1024;
+const MIME_BY_EXT = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml'
+};
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -259,6 +267,15 @@ async function propose(fileNames) {
     return { ok: false, message: '읽을 수 있는 자료가 없습니다.', skipped };
   }
 
+  // Inline a preview for each image so the review screen can show what is about
+  // to be attached to a scene.
+  for (const material of materials) {
+    if (material.kind !== 'image') continue;
+    const mime = MIME_BY_EXT[material.ext];
+    if (!mime || material.bytes > MAX_INLINE_BYTES) continue;
+    material.previewDataUrl = `data:${mime};base64,${(await fsp.readFile(path.join(folderPath('inbox'), material.name))).toString('base64')}`;
+  }
+
   const scenes = await currentScenes();
   const provider = organizer.activeProvider();
   if (!provider) {
@@ -268,11 +285,24 @@ async function propose(fileNames) {
   const chapterById = new Map((await chapterList()).map((c) => [c.id, c]));
   const sceneById = new Map(scenes.map((s) => [s.id, s]));
   const changes = await provider.propose({ materials, scenes });
+  const material_preview = Object.fromEntries(
+    materials.filter((m) => m.previewDataUrl).map((m) => [m.name, m.previewDataUrl])
+  );
   const proposal = {
     id: `p-${Date.now().toString(36)}`,
     createdAt: new Date().toISOString(),
     provider: { id: provider.id, label: provider.label, kind: provider.kind },
-    sourceFiles: materials.map((m) => ({ name: m.name, ext: m.ext, kind: m.kind, archivePath: m.archivePath })),
+    sourceFiles: materials.map((m) => ({ name: m.name, ext: m.ext, kind: m.kind, archivePath: m.archivePath, mime: m.mime || '' })),
+    // An image proposal only guesses its target scene from the filename, so the
+    // review UI needs the full list to let the instructor place it deliberately.
+    sceneOptions: scenes.map((scene) => {
+      const chapter = chapterById.get(scene.chapter);
+      return {
+        id: scene.id,
+        title: scene.title,
+        chapterLabel: chapter ? `${chapter.label} · ${chapter.title}` : ''
+      };
+    }),
     skipped,
     changes: changes.map((c) => {
       const scene = sceneById.get(c.sceneId);
@@ -291,6 +321,8 @@ async function propose(fileNames) {
         confidence: c.confidence || 'low',
         sourceName: c.sourceName || '',
         ...(c.assetPath ? { assetPath: c.assetPath } : {}),
+        ...(c.mime ? { mime: c.mime } : {}),
+        ...(material_preview[c.sourceName] ? { previewDataUrl: material_preview[c.sourceName] } : {}),
         // A new_scene needs more than a sentence, so its presentation fields
         // travel with the change instead of being dropped.
         ...(c.action === 'new_scene'
@@ -418,8 +450,18 @@ async function applyProposal(proposalId, decisions) {
     const decision = decisionById.get(change.id);
     if (decision && decision.decision === 'apply') {
       // `after` may have been hand-edited in the preview, so the applied value
-      // is always the reviewed one — never the raw suggestion.
-      approved.push({ ...change, after: typeof decision.after === 'string' && decision.after.trim() ? decision.after : change.after });
+      // is always the reviewed one — never the raw suggestion. An asset also
+      // carries the scene the instructor picked, which overrides the guess.
+      const picked = typeof decision.sceneId === 'string' && decision.sceneId
+        ? decision.sceneId
+        : change.sceneId;
+      approved.push({
+        ...change,
+        sceneId: picked,
+        after: typeof decision.after === 'string' && decision.after.trim() ? decision.after : change.after,
+        ...(typeof decision.title === 'string' && decision.title.trim() ? { title: decision.title.trim() } : {}),
+        ...(typeof decision.caption === 'string' && decision.caption.trim() ? { caption: decision.caption.trim() } : {})
+      });
     } else {
       rejected.push(change.id);
     }
@@ -578,44 +620,31 @@ async function openFolder(which) {
   return { ok: true, opened: target };
 }
 
-// Serves files that live under the Archive root to the renderer. The renderer is
-// sandboxed with a restrictive CSP and cannot read file:// paths outside the
-// app directory, and it must never gain arbitrary filesystem access, so this
-// handler only ever resolves paths inside the archive root.
-function registerArchiveProtocol() {
-  const { protocol, net } = require('electron');
-  protocol.handle(SCHEME, async (request) => {
+// Approved images live in the user's Documents folder, which the sandboxed
+// renderer cannot read. They are inlined as data: URLs instead of registering a
+// custom scheme: the deck's CSP already allows data: in img-src, so this needs
+// no extra origin and gives the renderer no filesystem access at all.
+async function resolveAssetUrls(overrides) {
+  const assets = overrides.assets || {};
+  for (const [sceneId, asset] of Object.entries(assets)) {
+    if (!asset || !asset.archivePath || asset.dataUrl) continue;
     try {
-      const url = new URL(request.url);
-      const relative = decodeURIComponent(url.pathname).replace(/^\/+/, '');
+      const target = path.resolve(archiveRoot(), asset.archivePath);
       const root = archiveRoot();
-      const target = path.resolve(root, relative);
-      if (target !== root && !target.startsWith(root + path.sep)) {
-        return new Response('forbidden', { status: 403 });
-      }
-      const stat = await fsp.stat(target).catch(() => null);
-      if (!stat || !stat.isFile()) return new Response('not found', { status: 404 });
-      return net.fetch(`file://${target.replace(/\\/g, '/')}`);
+      if (target !== root && !target.startsWith(root + path.sep)) continue;
+      const stat = await fsp.stat(target);
+      if (!stat.isFile() || stat.size > MAX_INLINE_BYTES) continue;
+      const mime = MIME_BY_EXT[path.extname(target).toLowerCase()];
+      if (!mime) continue;
+      assets[sceneId] = { ...asset, dataUrl: `data:${mime};base64,${(await fsp.readFile(target)).toString('base64')}` };
     } catch {
-      return new Response('bad request', { status: 400 });
+      // A missing or unreadable file just leaves the caption without a picture.
     }
-  });
-}
-
-function registerArchiveScheme() {
-  const { protocol } = require('electron');
-  protocol.registerSchemesAsPrivileged([{
-    scheme: SCHEME,
-    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true }
-  }]);
-}
-
-function archiveUrl(archivePath) {
-  return `${SCHEME}://material/${String(archivePath || '').split('/').map(encodeURIComponent).join('/')}`;
+  }
+  return overrides;
 }
 
 module.exports = {
-  SCHEME,
   SUBFOLDERS,
   SUPPORTED,
   PLANNED,
@@ -633,7 +662,5 @@ module.exports = {
   readOverrides,
   writeOverrides,
   currentScenes,
-  registerArchiveScheme,
-  registerArchiveProtocol,
-  archiveUrl
+  resolveAssetUrls
 };
