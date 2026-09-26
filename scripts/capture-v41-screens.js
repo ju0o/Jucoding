@@ -56,8 +56,12 @@ ipcMain.handle('archive-proposal', async (_e, id) => {
   return p ? { ok: true, proposal: p } : { ok: false, message: '없음' };
 });
 ipcMain.handle('archive-apply', (_e, id, d) => archive.applyProposal(id, d));
-ipcMain.handle('archive-overrides', async () => ({ ok: true, overrides: await archive.resolveAssetUrls(await archive.readOverrides()) }));
+ipcMain.handle('archive-overrides', async () => ({ ok: true, overrides: await archive.readOverrides() }));
 ipcMain.handle('organizer-status', () => require('../src/main/v4-organizer').status());
+ipcMain.handle('archive-asset-data', async (_e, p) => {
+  const u = await archive.assetDataUrl(p);
+  return u ? { ok: true, dataUrl: u } : { ok: false };
+});
 
 
 // A real, decodable PNG. The previous inline base64 was truncated (no IEND

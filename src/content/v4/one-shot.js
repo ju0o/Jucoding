@@ -354,23 +354,66 @@
       </div>`;
   };
 
-  const archiveAssetFigure = (scene) => {
-    const asset = scene.archiveAsset;
-    if (!asset) return '';
-    // Approved images arrive inlined as data: URLs by the main process, because
-    // the renderer cannot read the user's Documents folder.
-    const src = asset.dataUrl || '';
-    if (!src) {
-      return `<p class="archive-asset-missing">자료함 자료 “${escapeHtml(asset.title || '')}”을(를) 표시할 수 없습니다. Archive 의 applied 폴더에서 파일을 확인하세요.</p>`;
+  // Images are fetched one at a time when their scene is rendered, and cached
+  // for the session. A large image set would otherwise be inlined into every
+  // page load whether or not a picture was on screen.
+  const assetDataCache = new Map();
+
+  async function loadArchiveAsset(asset) {
+    if (!asset) return null;
+    if (asset.dataUrl) return asset.dataUrl;
+    if (!asset.archivePath) return null;
+    if (assetDataCache.has(asset.archivePath)) return assetDataCache.get(asset.archivePath);
+    const bridge = window.vibeCodingApp;
+    if (!bridge || typeof bridge.getArchiveAssetData !== 'function') return null;
+    try {
+      const result = await bridge.getArchiveAssetData(asset.archivePath);
+      const url = result && result.ok ? result.dataUrl : null;
+      assetDataCache.set(asset.archivePath, url);
+      return url;
+    } catch {
+      return null;
     }
-    return `
+  }
+
+  function archiveAssetFigure(asset) {
+    if (!asset) return '';
+    if (asset.dataUrl) {
+      return `
       <figure class="v4-asset-figure v4-asset-hero">
-        <img src="${escapeHtml(src)}" alt="${escapeHtml(asset.title || '자료함 자료')}"
-             data-asset-full="${escapeHtml(src)}" data-asset-title="${escapeHtml(asset.title || '자료함 자료')}"
+        <img src="${escapeHtml(asset.dataUrl)}" alt="${escapeHtml(asset.title || '자료함 자료')}"
+             data-asset-full="${escapeHtml(asset.dataUrl)}" data-asset-title="${escapeHtml(asset.title || '자료함 자료')}"
              data-asset-cap="${escapeHtml(asset.caption || '')}">
         <figcaption><b>${escapeHtml(asset.title || '자료함 자료')} · 클릭하면 크게 보기</b>${escapeHtml(asset.caption || '')}<br><small>Archive 자료함 자료 · 인터넷 없이 표시됩니다</small></figcaption>
       </figure>`;
-  };
+    }
+    if (!asset.archivePath) return '';
+    // Not loaded yet: render a stable placeholder, then swap in the picture.
+    return `
+      <figure class="v4-asset-figure v4-asset-hero" data-archive-asset="${escapeHtml(asset.archivePath)}">
+        <div class="archive-asset-loading" aria-hidden="true">자료 불러오는 중…</div>
+        <figcaption><b>${escapeHtml(asset.title || '자료함 자료')}</b>${escapeHtml(asset.caption || '')}<br><small>Archive 자료함 자료 · 인터넷 없이 표시됩니다</small></figcaption>
+      </figure>`;
+  }
+
+  function hydrateArchiveAssets() {
+    document.querySelectorAll('[data-archive-asset]').forEach((holder) => {
+      const archivePath = holder.getAttribute('data-archive-asset');
+      loadArchiveAsset({ archivePath }).then((url) => {
+        if (!url) {
+          holder.innerHTML = `<p class="archive-asset-missing">자료함 자료를 표시할 수 없습니다. Archive 의 applied 폴더에서 파일을 확인하세요.</p>`;
+          return;
+        }
+        const title = holder.querySelector('figcaption b')?.textContent || '자료함 자료';
+        const cap = holder.querySelector('figcaption')?.childNodes[1]?.textContent || '';
+        holder.innerHTML = `
+          <img src="${escapeHtml(url)}" alt="${escapeHtml(title)}"
+               data-asset-full="${escapeHtml(url)}" data-asset-title="${escapeHtml(title)}"
+               data-asset-cap="${escapeHtml(cap)}">
+          <figcaption><b>${escapeHtml(title)} · 클릭하면 크게 보기</b>${escapeHtml(cap)}<br><small>Archive 자료함 자료 · 인터넷 없이 표시됩니다</small></figcaption>`;
+      });
+    });
+  }
 
   let appliedOverrideCount = 0;
 
@@ -468,7 +511,8 @@
     // An Archive image approved for this scene is appended here rather than
     // baked into the renderer, so the renderer stays content-free.
     if (sceneEl && scene.archiveAsset) {
-      sceneEl.insertAdjacentHTML('beforeend', archiveAssetFigure(scene));
+      sceneEl.insertAdjacentHTML('beforeend', archiveAssetFigure(scene.archiveAsset));
+      hydrateArchiveAssets();
     }
     applyStagger(sceneEl || stage);
 

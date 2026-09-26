@@ -267,14 +267,8 @@ async function propose(fileNames) {
     return { ok: false, message: '읽을 수 있는 자료가 없습니다.', skipped };
   }
 
-  // Inline a preview for each image so the review screen can show what is about
-  // to be attached to a scene.
-  for (const material of materials) {
-    if (material.kind !== 'image') continue;
-    const mime = MIME_BY_EXT[material.ext];
-    if (!mime || material.bytes > MAX_INLINE_BYTES) continue;
-    material.previewDataUrl = `data:${mime};base64,${(await fsp.readFile(path.join(folderPath('inbox'), material.name))).toString('base64')}`;
-  }
+  // The review screen previews each image by pulling it on demand through
+  // archive:asset-data, so a 16-image set does not become a ~31MB proposal.
 
   const scenes = await currentScenes();
   const provider = organizer.activeProvider();
@@ -285,9 +279,6 @@ async function propose(fileNames) {
   const chapterById = new Map((await chapterList()).map((c) => [c.id, c]));
   const sceneById = new Map(scenes.map((s) => [s.id, s]));
   const changes = await provider.propose({ materials, scenes });
-  const material_preview = Object.fromEntries(
-    materials.filter((m) => m.previewDataUrl).map((m) => [m.name, m.previewDataUrl])
-  );
   const proposal = {
     id: `p-${Date.now().toString(36)}`,
     createdAt: new Date().toISOString(),
@@ -322,7 +313,6 @@ async function propose(fileNames) {
         sourceName: c.sourceName || '',
         ...(c.assetPath ? { assetPath: c.assetPath } : {}),
         ...(c.mime ? { mime: c.mime } : {}),
-        ...(material_preview[c.sourceName] ? { previewDataUrl: material_preview[c.sourceName] } : {}),
         // A new_scene needs more than a sentence, so its presentation fields
         // travel with the change instead of being dropped.
         ...(c.action === 'new_scene'
@@ -621,27 +611,29 @@ async function openFolder(which) {
 }
 
 // Approved images live in the user's Documents folder, which the sandboxed
-// renderer cannot read. They are inlined as data: URLs instead of registering a
-// custom scheme: the deck's CSP already allows data: in img-src, so this needs
-// no extra origin and gives the renderer no filesystem access at all.
-async function resolveAssetUrls(overrides) {
-  const assets = overrides.assets || {};
-  for (const [sceneId, asset] of Object.entries(assets)) {
-    if (!asset || !asset.archivePath || asset.dataUrl) continue;
-    try {
-      const target = path.resolve(archiveRoot(), asset.archivePath);
-      const root = archiveRoot();
-      if (target !== root && !target.startsWith(root + path.sep)) continue;
-      const stat = await fsp.stat(target);
-      if (!stat.isFile() || stat.size > MAX_INLINE_BYTES) continue;
-      const mime = MIME_BY_EXT[path.extname(target).toLowerCase()];
-      if (!mime) continue;
-      assets[sceneId] = { ...asset, dataUrl: `data:${mime};base64,${(await fsp.readFile(target)).toString('base64')}` };
-    } catch {
-      // A missing or unreadable file just leaves the caption without a picture.
-    }
+// renderer cannot read, so they are handed over as data: URLs. The deck's CSP
+// already allows data: in img-src, so this needs no custom scheme and gives the
+// renderer no filesystem access.
+//
+// They are resolved ONE AT A TIME, on demand, not bundled with the overrides.
+// A 16-image set of 1254x1254 PNGs is ~23MB on disk and ~31MB as base64, so
+// inlining everything meant every lecture page load pulled 31MB over IPC before
+// showing a single picture.
+async function assetDataUrl(archivePath) {
+  if (!archivePath) return null;
+  try {
+    const root = archiveRoot();
+    const target = path.resolve(root, archivePath);
+    if (target !== root && !target.startsWith(root + path.sep)) return null;
+    const stat = await fsp.stat(target);
+    if (!stat.isFile()) return null;
+    const mime = MIME_BY_EXT[path.extname(target).toLowerCase()];
+    if (!mime) return null;
+    if (stat.size > MAX_INLINE_BYTES) return null;
+    return `data:${mime};base64,${(await fsp.readFile(target)).toString('base64')}`;
+  } catch {
+    return null;
   }
-  return overrides;
 }
 
 module.exports = {
@@ -662,5 +654,5 @@ module.exports = {
   readOverrides,
   writeOverrides,
   currentScenes,
-  resolveAssetUrls
+  assetDataUrl
 };

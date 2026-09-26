@@ -249,17 +249,19 @@ ipcMain.handle('archive-apply', async (_event, proposalId, decisions) => {
 
 ipcMain.handle('archive-overrides', async () => {
   try {
-    // Approved images are inlined as data: URLs. The renderer is sandboxed and
-    // cannot read the user's Documents folder over file://, and the deck's CSP
-    // already allows data: in img-src, so this needs no custom scheme and no
-    // filesystem access in the renderer.
-    return { ok: true, overrides: await archive.resolveAssetUrls(await archive.readOverrides()) };
+    return { ok: true, overrides: await archive.readOverrides() };
   } catch (err) {
     return { ok: false, message: err.message };
   }
 });
 
 ipcMain.handle('organizer-status', () => organizer.status());
+
+// One image at a time, fetched only when a scene that uses it is rendered.
+ipcMain.handle('archive-asset-data', async (_event, archivePath) => {
+  const dataUrl = await archive.assetDataUrl(archivePath);
+  return dataUrl ? { ok: true, dataUrl } : { ok: false };
+});
 
 // Legacy course-management handlers (read-manifest, read-official-sources,
 // read-community-share-resources, save-pdf, open-content-path) are intentionally

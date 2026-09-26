@@ -71,8 +71,12 @@ ipcMain.handle('archive-proposal', async (_e, id) => {
   return proposal ? { ok: true, proposal } : { ok: false, message: '없음' };
 });
 ipcMain.handle('archive-apply', (_e, id, decisions) => archive.applyProposal(id, decisions));
-ipcMain.handle('archive-overrides', async () => ({ ok: true, overrides: await archive.resolveAssetUrls(await archive.readOverrides()) }));
+ipcMain.handle('archive-overrides', async () => ({ ok: true, overrides: await archive.readOverrides() }));
 ipcMain.handle('organizer-status', () => require('../src/main/v4-organizer').status());
+ipcMain.handle('archive-asset-data', async (_e, p) => {
+  const u = await archive.assetDataUrl(p);
+  return u ? { ok: true, dataUrl: u } : { ok: false };
+});
 
 function check(results, name, ok, detail) {
   results[name] = { ok: Boolean(ok), ...(detail !== undefined ? { detail } : {}) };
@@ -587,9 +591,9 @@ app.whenReady().then(async () => {
     check(results, 'qa22_imageCarriesSceneOptions',
       Array.isArray(imgProposal.proposal.sceneOptions) && imgProposal.proposal.sceneOptions.length === 21,
       (imgProposal.proposal.sceneOptions || []).length);
-    check(results, 'qa22_imageHasPreview',
-      typeof imgChanges[0]?.previewDataUrl === 'string' && imgChanges[0].previewDataUrl.startsWith('data:image/'),
-      (imgChanges[0]?.previewDataUrl || '').slice(0, 24));
+    check(results, 'qa22_imageHasAssetPath',
+      typeof imgChanges[0]?.assetPath === 'string' && imgChanges[0].assetPath.startsWith('inbox/'),
+      imgChanges[0]?.assetPath);
     if (imgChanges.length) {
       // Place it on a scene the filename could never have guessed.
       const pickedScene = 'git';
@@ -607,11 +611,16 @@ app.whenReady().then(async () => {
         && imgOverrides.assets[pickedScene].archivePath.startsWith('applied/')
         && imgOverrides.assets[pickedScene].caption === '수업 중 함께 보는 도표',
         imgOverrides.assets);
-      const resolved = await archive.resolveAssetUrls(await archive.readOverrides());
-      check(results, 'qa22_imageInlinedAsDataUrl',
-        typeof resolved.assets[pickedScene]?.dataUrl === 'string'
-        && resolved.assets[pickedScene].dataUrl.startsWith('data:image/webp;base64,'),
-        (resolved.assets[pickedScene]?.dataUrl || '').slice(0, 24));
+      const dataUrl = await archive.assetDataUrl(imgOverrides.assets[pickedScene].archivePath);
+      check(results, 'qa22_imageFetchedOnDemand',
+        typeof dataUrl === 'string' && dataUrl.startsWith('data:image/webp;base64,'),
+        (dataUrl || '').slice(0, 24));
+      // The whole image set must not travel with the overrides payload.
+      const bare = await archive.readOverrides();
+      const inlineBytes = JSON.stringify(bare).length;
+      check(results, 'qa22_overridesStaySmall',
+        inlineBytes < 200000 && !JSON.stringify(bare).includes('base64'),
+        { overrideBytes: inlineBytes });
     }
 
     // ------------------------------- 18b. reject-only material -> reviewed ---

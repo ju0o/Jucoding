@@ -359,8 +359,34 @@
     proposalEls.changes.innerHTML = proposal.changes.length
       ? proposal.changes.map((change) => renderChangeCard(change, sceneOptions)).join('')
       : '<p class="meta-line">이 자료로부터 만든 변경 후보가 없습니다. 다른 자료를 넣어보세요.</p>';
+    hydrateAssetPreviews();
     updateProposalSummary();
     proposalEls.status.textContent = '기본값은 "기존 유지"입니다. 반영할 변경만 눌러 표시한 뒤 적용하세요.';
+  }
+
+  // Each image is pulled on demand so a large image set does not have to travel
+  // inside the proposal payload.
+  function hydrateAssetPreviews() {
+    proposalEls.changes.querySelectorAll('[data-asset-preview]').forEach((holder) => {
+      const archivePath = holder.getAttribute('data-asset-preview');
+      if (!archivePath || !bridge || typeof bridge.getArchiveAssetData !== 'function') {
+        holder.textContent = '미리보기를 표시할 수 없습니다';
+        return;
+      }
+      bridge.getArchiveAssetData(archivePath)
+        .then((result) => {
+          if (!result || !result.ok) {
+            holder.textContent = '미리보기를 표시할 수 없습니다';
+            return;
+          }
+          const img = document.createElement('img');
+          img.className = 'change-asset-preview';
+          img.alt = holder.getAttribute('data-asset-title') || '자료 미리보기';
+          img.src = result.dataUrl;
+          holder.replaceWith(img);
+        })
+        .catch(() => { holder.textContent = '미리보기를 표시할 수 없습니다'; });
+    });
   }
 
   function renderChangeCard(change, sceneOptions) {
@@ -369,9 +395,7 @@
     // shows the picture and lets the instructor place it.
     const assetBody = isAsset ? `
       <div class="change-asset">
-        ${change.previewDataUrl
-          ? `<img class="change-asset-preview" alt="${esc(change.after)}" src="${esc(change.previewDataUrl)}">`
-          : '<div class="change-asset-preview is-blank">미리보기를 표시할 수 없습니다</div>'}
+        <div class="change-asset-preview is-blank" data-asset-preview="${esc(change.assetPath || `inbox/${change.sourceName}`)}" data-asset-title="${esc(change.after)}">불러오는 중…</div>
         <div class="change-asset-fields">
           <label>이미지를 붙일 장면
             <select data-scene-pick>

@@ -62,6 +62,10 @@ contextBridge.exposeInMainWorld('vibeCodingApp', {
 
   // Approved lecture overrides, merged over the shipped content at render time.
   getLectureOverrides: () => ipcRenderer.invoke('archive-overrides'),
+
+  // Fetches one approved image as a data: URL, on demand. Bundling every image
+  // into the overrides meant a large image set cost tens of MB on every load.
+  getArchiveAssetData: (archivePath) => ipcRenderer.invoke('archive-asset-data', archivePath),
   getOrganizerStatus: () => ipcRenderer.invoke('organizer-status'),
 
   // 개발/패키징 여부
