@@ -100,7 +100,8 @@ const EMPTY_OVERRIDES = {
   appliedProposalId: '',
   scenes: {},
   assets: {},
-  newScenes: []
+  newScenes: [],
+  chapters: []
 };
 
 async function readOverrides() {
@@ -113,7 +114,8 @@ async function readOverrides() {
       ...parsed,
       scenes: parsed.scenes && typeof parsed.scenes === 'object' ? parsed.scenes : {},
       assets: parsed.assets && typeof parsed.assets === 'object' ? parsed.assets : {},
-      newScenes: Array.isArray(parsed.newScenes) ? parsed.newScenes : []
+      newScenes: Array.isArray(parsed.newScenes) ? parsed.newScenes : [],
+      chapters: Array.isArray(parsed.chapters) ? parsed.chapters : []
     };
   } catch {
     return { ...EMPTY_OVERRIDES };
@@ -221,6 +223,20 @@ async function readMaterial(name) {
 // Proposals
 // ---------------------------------------------------------------------------
 
+function safeParse(raw) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function sourceFileList(materials) {
+  return materials.map((m) => ({
+    name: m.name, ext: m.ext, kind: m.kind, archivePath: m.archivePath, mime: m.mime || ''
+  }));
+}
+
 async function currentScenes() {
   const contentDir = path.join(__dirname, '..', 'content', 'v4', 'scenes');
   const curriculumFile = path.join(__dirname, '..', 'content', 'v4', 'curriculum.json');
@@ -267,8 +283,36 @@ async function propose(fileNames) {
     return { ok: false, message: '읽을 수 있는 자료가 없습니다.', skipped };
   }
 
-  // The review screen previews each image by pulling it on demand through
-  // archive:asset-data, so a 16-image set does not become a ~31MB proposal.
+  // An authored .json proposal may name further files it consumes, typically a
+  // deck of images placed slide by slide. Those files are loaded for metadata
+  // and for filing afterwards, but they are deliberately kept OUT of the
+  // analysed set: the proposal already decides where each one goes, and running
+  // the similarity guess over them too produced a second, wrong set of changes
+  // for the very same files.
+  let proposalConsumes = [];
+  for (const material of materials) {
+    if (material.ext !== '.json') continue;
+    const parsed = safeParse(material.text);
+    if (parsed && Array.isArray(parsed.consumes)) proposalConsumes = parsed.consumes;
+  }
+  if (proposalConsumes.length) {
+    const consumedNames = new Set(proposalConsumes);
+    // Split, but keep every file: consumed files must stay in the list so they
+    // are filed to applied/ afterwards. Dropping them here left the approved
+    // images sitting in the inbox with archivePath still pointing at inbox/.
+    const analysed = materials.filter((m) => !consumedNames.has(m.name));
+    const consumed = materials.filter((m) => consumedNames.has(m.name));
+    for (const name of proposalConsumes) {
+      if (consumed.some((m) => m.name === name)) continue;
+      try {
+        consumed.push(await readMaterial(name));
+      } catch (err) {
+        skipped.push({ name, reason: err.message });
+      }
+    }
+    materials.length = 0;
+    materials.push(...analysed, ...consumed);
+  }
 
   const scenes = await currentScenes();
   const provider = organizer.activeProvider();
@@ -278,12 +322,19 @@ async function propose(fileNames) {
 
   const chapterById = new Map((await chapterList()).map((c) => [c.id, c]));
   const sceneById = new Map(scenes.map((s) => [s.id, s]));
-  const changes = await provider.propose({ materials, scenes });
+  const consumedNames = new Set(proposalConsumes);
+  const changes = await provider.propose({
+    materials: materials.filter((m) => !consumedNames.has(m.name)),
+    scenes
+  });
   const proposal = {
     id: `p-${Date.now().toString(36)}`,
     createdAt: new Date().toISOString(),
     provider: { id: provider.id, label: provider.label, kind: provider.kind },
-    sourceFiles: materials.map((m) => ({ name: m.name, ext: m.ext, kind: m.kind, archivePath: m.archivePath, mime: m.mime || '' })),
+    // An authored proposal may declare extra files it consumes, so a deck of
+    // images can be placed by a single JSON change set. Those files still have
+    // to exist and be readable in the inbox.
+    sourceFiles: sourceFileList(materials),
     // An image proposal only guesses its target scene from the filename, so the
     // review UI needs the full list to let the instructor place it deliberately.
     sceneOptions: scenes.map((scene) => {
@@ -307,12 +358,15 @@ async function propose(fileNames) {
         action: c.action,
         field: c.field || (c.action === 'append' ? 'extra' : 'narration'),
         before: c.before || '',
-        after: c.after || '',
+        after: c.after || c.title || c.narration || '',
         reason: c.reason || '',
         confidence: c.confidence || 'low',
         sourceName: c.sourceName || '',
         ...(c.assetPath ? { assetPath: c.assetPath } : {}),
         ...(c.mime ? { mime: c.mime } : {}),
+        ...(c.size ? { size: c.size } : {}),
+        ...(c.title ? { title: c.title } : {}),
+        ...(c.caption ? { caption: c.caption } : {}),
         // A new_scene needs more than a sentence, so its presentation fields
         // travel with the change instead of being dropped.
         ...(c.action === 'new_scene'
@@ -321,7 +375,14 @@ async function propose(fileNames) {
             ...(c.chapter ? { chapter: c.chapter } : {}),
             ...(c.cue ? { cue: c.cue } : {}),
             ...(c.extra ? { extra: c.extra } : {}),
-            ...(Array.isArray(c.blocks) ? { blocks: c.blocks } : {})
+            ...(Array.isArray(c.blocks) ? { blocks: c.blocks } : {}),
+            ...(c.kicker ? { kicker: c.kicker } : {}),
+            ...(c.sub ? { sub: c.sub } : {}),
+            ...(c.chapterId ? { chapterId: c.chapterId } : {}),
+            ...(c.chapterTitle ? { chapterTitle: c.chapterTitle } : {}),
+            ...(c.chapterLabel ? { chapterLabel: c.chapterLabel } : {}),
+            ...(c.chapterTime ? { chapterTime: c.chapterTime } : {}),
+            ...(c.size ? { size: c.size } : {})
           }
           : {})
       };
@@ -516,6 +577,19 @@ async function applyProposal(proposalId, decisions) {
   const touchedScenes = new Set();
   for (const change of approved) {
     if (change.action === 'new_scene') {
+      if (change.chapterId && change.chapterTitle && !knownChapters.has(change.chapterId)) {
+        // An authored proposal may introduce a whole new chapter.
+        knownChapters.add(change.chapterId);
+        overrides.chapters = overrides.chapters || [];
+        if (!overrides.chapters.some((c) => c.id === change.chapterId)) {
+          overrides.chapters.push({
+            id: change.chapterId,
+            label: change.chapterLabel || '+',
+            title: change.chapterTitle,
+            time: change.chapterTime || ''
+          });
+        }
+      }
       const requested = String(change.chapter || '');
       const scene = {
         id: change.sceneId,
@@ -538,7 +612,9 @@ async function applyProposal(proposalId, decisions) {
       overrides.assets[change.sceneId] = {
         archivePath: relative,
         title: change.title || change.after,
-        caption: change.caption || `자료함 자료 · ${change.after}`
+        caption: change.caption || `자료함 자료 · ${change.after}`,
+        // 'large' renders a full slide; the default is a caption-sized figure.
+        ...(change.size ? { size: change.size } : {})
       };
       touchedScenes.add(change.sceneId);
       continue;

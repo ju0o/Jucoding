@@ -24,6 +24,13 @@
 
 const CONFIDENCE = { HIGH: 'high', MEDIUM: 'medium', LOW: 'low' };
 
+const CHANGE_ACTIONS = {
+  REPLACE: 'replace',
+  APPEND: 'append',
+  ASSET: 'asset',
+  NEW_SCENE: 'new_scene'
+};
+
 const THRESHOLDS = {
   [CONFIDENCE.HIGH]: 0.52,
   [CONFIDENCE.MEDIUM]: 0.34,
@@ -134,6 +141,23 @@ function collectJsonStrings(value, out = [], depth = 0) {
 // A .json material may already be a Lecture Update Proposal. When it is, use it
 // verbatim instead of guessing — that makes the documented schema a real
 // interchange format rather than just a shape in the docs.
+// What a change must carry depends on its action. Requiring `after` for every
+// action silently rejected every new_scene, because a new scene describes itself
+// with title/narration rather than a replacement string.
+function isUsableChange(change) {
+  if (!change || typeof change !== 'object') return false;
+  if (typeof change.sceneId !== 'string' || !change.sceneId.trim()) return false;
+  if (!Object.values(CHANGE_ACTIONS).includes(change.action)) return false;
+  const hasText = (v) => typeof v === 'string' && v.trim();
+  if (change.action === CHANGE_ACTIONS.NEW_SCENE) {
+    return hasText(change.after) || hasText(change.title) || hasText(change.narration);
+  }
+  if (change.action === CHANGE_ACTIONS.ASSET) {
+    return hasText(change.after) || hasText(change.title) || hasText(change.assetPath);
+  }
+  return hasText(change.after);
+}
+
 function proposalFromJson(raw) {
   let parsed;
   try {
@@ -143,11 +167,7 @@ function proposalFromJson(raw) {
   }
   const changes = Array.isArray(parsed) ? parsed : parsed && parsed.changes;
   if (!Array.isArray(changes) || !changes.length) return null;
-  const valid = changes.every((c) => c && typeof c === 'object'
-    && typeof c.sceneId === 'string' && c.sceneId
-    && typeof c.after === 'string' && c.after.trim()
-    && ['replace', 'append', 'asset', 'new_scene'].includes(c.action));
-  return valid ? changes : null;
+  return changes.every(isUsableChange) ? changes : null;
 }
 
 function makeChangeId(sceneId, action, after) {
@@ -160,10 +180,12 @@ function makeChangeId(sceneId, action, after) {
 // Presentation fields a new_scene needs, passed through only when present.
 function newSceneFields(change) {
   const out = {};
-  for (const key of ['title', 'chapter', 'cue', 'extra']) {
+  for (const key of ['title', 'chapter', 'cue', 'extra', 'kicker', 'sub', 'sourceName',
+    'chapterId', 'chapterTitle', 'chapterLabel', 'chapterTime', 'size']) {
     if (typeof change[key] === 'string' && change[key].trim()) out[key] = change[key].trim();
   }
-  if (Array.isArray(change.blocks) && change.blocks.length) out.blocks = change.blocks;
+  // blocks is meaningful even when empty: an explicit [] means "no body text".
+  if (Array.isArray(change.blocks)) out.blocks = change.blocks;
   return out;
 }
 
@@ -186,8 +208,13 @@ function localPropose({ materials, scenes }) {
   };
 
   // Every change records which material produced it, so applying can file that
-  // exact file away and report the attribution back to the instructor.
-  const withSource = (change, material) => ({ ...change, sourceName: material.name });
+  // exact file away and report the attribution back to the instructor. An
+  // authored proposal may point a change at a different file (an image deck
+  // placed by the proposal that names it), so an explicit sourceName wins.
+  const withSource = (change, material) => ({
+    ...change,
+    sourceName: change.sourceName || material.name
+  });
 
   for (const material of materials) {
     if (material.kind === 'image') {
@@ -230,21 +257,39 @@ function localPropose({ materials, scenes }) {
     // 1) The material is already a proposal → trust it.
     const explicit = material.ext === '.json' ? proposalFromJson(raw) : null;
     if (explicit) {
+      // A proposal that introduces scenes may also attach assets or text to
+      // them, so the "unknown scene" guard has to know about the scenes the
+      // same proposal creates. Without this every asset aimed at a new scene was
+      // silently dropped and the scene rendered with no picture.
+      const introduced = new Set(
+        explicit.filter((c) => c && c.action === CHANGE_ACTIONS.NEW_SCENE && typeof c.sceneId === 'string')
+          .map((c) => c.sceneId)
+      );
       for (const change of explicit) {
-        if (!byId.has(change.sceneId) && change.action !== 'new_scene') continue;
+        if (!byId.has(change.sceneId) && !introduced.has(change.sceneId)) continue;
         push(withSource({
           sceneId: change.sceneId,
           action: change.action,
           field: change.field || (change.action === 'append' ? 'extra' : 'narration'),
           before: typeof change.before === 'string' ? change.before : '',
-          after: change.after,
+          after: change.after || change.title || change.narration || '',
+          ...(change.assetPath ? { assetPath: change.assetPath } : {}),
           reason: change.reason || `${material.name} 안에 이미 작성된 변경안이 있습니다.`,
           confidence: Object.values(CONFIDENCE).includes(change.confidence)
             ? change.confidence
             : CONFIDENCE.HIGH,
+          // An authored proposal can point each change at a specific file, so a
+          // deck of images can live alongside the proposal that places it.
+          ...(typeof change.sourceName === 'string' && change.sourceName.trim()
+            ? { sourceName: change.sourceName.trim() }
+            : {}),
+          ...(change.action === CHANGE_ACTIONS.ASSET
+            ? (typeof change.size === 'string' && change.size.trim() ? { size: change.size.trim() } : {})
+            : {}),
           // A new_scene carries its own presentation, so those fields must
           // survive re-emission instead of being flattened to `after`.
-          ...(change.action === 'new_scene' ? newSceneFields(change) : {})
+          ...(change.action === 'new_scene' ? newSceneFields(change) : {}),
+          ...(change.action === 'new_scene' ? { title: change.title || change.after || change.narration } : {})
         }, material));
       }
       continue;

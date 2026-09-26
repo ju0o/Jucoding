@@ -347,10 +347,14 @@
       }
       return `<p class="lead">${escapeHtml(block.text || '')}</p>`;
     }).join('');
+    // An explicit empty blocks array means "no body text": a full-slide figure
+    // should not be pushed down by a repeated summary.
+    const hasBlocks = Array.isArray(scene.blocks);
+    const bodyHtml = hasBlocks ? body : `<p class="lead">${escapeHtml(scene.narration || '')}</p>`;
     return `
-      <div class="scene">
+      <div class="scene${hasBlocks && !blocks.length ? ' scene-figure-only' : ''}">
         ${header(scene.kicker || 'ARCHIVE MATERIAL', escapeHtml(scene.title || ''), scene.sub || '자료함에서 추가된 장면입니다.')}
-        ${body || `<p class="lead">${escapeHtml(scene.narration || '')}</p>`}
+        ${bodyHtml}
       </div>`;
   };
 
@@ -378,19 +382,23 @@
 
   function archiveAssetFigure(asset) {
     if (!asset) return '';
+    // A full 1254x1254 slide has to be shown large or it is unreadable; the
+    // default archive figure is a caption-sized thumbnail.
+    const large = asset.size === 'large';
+    const figureClass = `v4-asset-figure v4-asset-hero${large ? ' v4-asset-large' : ''}`;
     if (asset.dataUrl) {
       return `
-      <figure class="v4-asset-figure v4-asset-hero">
+      <figure class="${figureClass}">
         <img src="${escapeHtml(asset.dataUrl)}" alt="${escapeHtml(asset.title || '자료함 자료')}"
              data-asset-full="${escapeHtml(asset.dataUrl)}" data-asset-title="${escapeHtml(asset.title || '자료함 자료')}"
-             data-asset-cap="${escapeHtml(asset.caption || '')}">
+             data-asset-cap="${escapeHtml(asset.caption || '')}"${large ? ' data-asset-fullscreen="1"' : ''}>
         <figcaption><b>${escapeHtml(asset.title || '자료함 자료')} · 클릭하면 크게 보기</b>${escapeHtml(asset.caption || '')}<br><small>Archive 자료함 자료 · 인터넷 없이 표시됩니다</small></figcaption>
       </figure>`;
     }
     if (!asset.archivePath) return '';
     // Not loaded yet: render a stable placeholder, then swap in the picture.
     return `
-      <figure class="v4-asset-figure v4-asset-hero" data-archive-asset="${escapeHtml(asset.archivePath)}">
+      <figure class="${figureClass}" data-archive-asset="${escapeHtml(asset.archivePath)}">
         <div class="archive-asset-loading" aria-hidden="true">자료 불러오는 중…</div>
         <figcaption><b>${escapeHtml(asset.title || '자료함 자료')}</b>${escapeHtml(asset.caption || '')}<br><small>Archive 자료함 자료 · 인터넷 없이 표시됩니다</small></figcaption>
       </figure>`;
@@ -409,7 +417,7 @@
         holder.innerHTML = `
           <img src="${escapeHtml(url)}" alt="${escapeHtml(title)}"
                data-asset-full="${escapeHtml(url)}" data-asset-title="${escapeHtml(title)}"
-               data-asset-cap="${escapeHtml(cap)}">
+               data-asset-cap="${escapeHtml(cap)}"${holder.classList.contains('v4-asset-large') ? ' data-asset-fullscreen="1"' : ''}>
           <figcaption><b>${escapeHtml(title)} · 클릭하면 크게 보기</b>${escapeHtml(cap)}<br><small>Archive 자료함 자료 · 인터넷 없이 표시됩니다</small></figcaption>`;
       });
     });
@@ -423,6 +431,19 @@
     const assets = overrides.assets || {};
     const newScenes = Array.isArray(overrides.newScenes) ? overrides.newScenes : [];
     let count = 0;
+
+    // An approved proposal may add a whole chapter (e.g. a slide deck placed
+    // at the end of the lecture). It joins the grid and the footer label.
+    for (const chapter of (Array.isArray(overrides.chapters) ? overrides.chapters : [])) {
+      if (!chapter || !chapter.id || chapters.some((c) => c.id === chapter.id)) continue;
+      chapters.push({
+        id: chapter.id,
+        label: chapter.label || '+',
+        title: chapter.title || chapter.id,
+        time: chapter.time || ''
+      });
+      count += 1;
+    }
 
     for (const scene of scenes) {
       const patch = sceneOverrides[scene.id];
@@ -444,12 +465,20 @@
     for (const extra of newScenes) {
       if (!extra || !extra.id) continue;
       if (scenes.some((scene) => scene.id === extra.id)) continue;
-      scenes.push({
+      const scene = {
         ...extra,
         chapter: extra.chapter || chapters[chapters.length - 1].id,
         origin: 'archive',
         render: () => renderDataScene(extra)
-      });
+      };
+      // An asset approved for a scene the same proposal creates has to be
+      // attached here too; the pass above only sees the shipped scenes.
+      const ownAsset = assets[scene.id];
+      if (ownAsset && ownAsset.archivePath) {
+        scene.archiveAsset = ownAsset;
+        count += 1;
+      }
+      scenes.push(scene);
       count += 1;
     }
     return count;
@@ -463,6 +492,8 @@
       if (!result || !result.ok || !result.overrides) return;
       appliedOverrideCount = applyOverrides(result.overrides);
       if (appliedOverrideCount) {
+        // An approved proposal can add a chapter, so the 목차 grid is rebuilt.
+        buildChapterGrid();
         const notice = document.getElementById('archive-notice');
         if (notice) {
           notice.textContent = `자료함 적용 내용 ${appliedOverrideCount}건이 반영되어 있습니다.`;
@@ -689,6 +720,10 @@
     }
     if (dialogTitle) dialogTitle.textContent = img.dataset.assetTitle || '강의 자료';
     if (dialogCap) dialogCap.textContent = img.dataset.assetCap || '';
+    // A full slide has fine print, so it gets the whole dialog rather than the
+    // caption-sized default.
+    const body = document.querySelector('.asset-dialog-body');
+    if (body) body.classList.toggle('is-full', img.dataset.assetFullscreen === '1');
     if (!assetDialog.open) assetDialog.showModal();
   });
 

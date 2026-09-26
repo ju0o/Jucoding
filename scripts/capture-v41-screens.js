@@ -31,6 +31,7 @@ app.setPath('userData', path.join(sandbox, 'userData'));
 const archive = require('../src/main/v4-archive');
 
 const store = {};
+const openedFolders = [];
 let win = null;
 ipcMain.handle('get-content-base', () => `file:///${path.join(root, 'src/content').replace(/\\/g, '/')}`);
 ipcMain.handle('get-fullscreen', () => (win ? win.isFullScreen() : false));
@@ -47,7 +48,18 @@ ipcMain.handle('export-user-data', () => ({ ok: false, canceled: true }));
 ipcMain.handle('import-user-data', () => ({ ok: false, canceled: true }));
 ipcMain.handle('open-external', () => ({ ok: true }));
 ipcMain.handle('archive-status', () => archive.status());
-ipcMain.handle('archive-open-folder', (_e, w) => archive.openFolder(w));
+// Opening a real folder is a desktop side effect, not a behaviour worth
+// asserting, and it hijacks the instructor's Explorer during QA. The handler
+// records the request and verifies the target exists instead of calling
+// shell.openPath, so the button wiring is still covered.
+ipcMain.handle('archive-open-folder', async (_event, which) => {
+  await archive.ensureArchive();
+  const name = archive.SUBFOLDERS.includes(which) ? which : 'inbox';
+  const target = archive.folderPath(name);
+  if (!fs.existsSync(target)) return { ok: false, message: '폴더가 없습니다' };
+  openedFolders.push(name);
+  return { ok: true, opened: target, dryRun: true };
+});
 ipcMain.handle('archive-scan', async () => ({ ok: true, ...(await archive.scanInbox()) }));
 ipcMain.handle('archive-propose', (_e, n) => archive.propose(n));
 ipcMain.handle('archive-proposals', async () => ({ ok: true, proposals: await archive.listProposals() }));

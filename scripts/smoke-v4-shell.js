@@ -44,6 +44,7 @@ const VISIBLE = process.env.JUCODING_QA_VISIBLE === '1' || process.argv.includes
 const archive = require('../src/main/v4-archive');
 
 const store = {};
+const openedFolders = [];
 let win = null;
 ipcMain.handle('get-content-base', () => `file:///${path.join(root, 'src/content').replace(/\\/g, '/')}`);
 ipcMain.handle('get-fullscreen', () => (win ? win.isFullScreen() : false));
@@ -62,7 +63,18 @@ ipcMain.handle('open-external', () => ({ ok: true }));
 
 // The real archive handlers, so the UI is exercised against production code.
 ipcMain.handle('archive-status', () => archive.status());
-ipcMain.handle('archive-open-folder', (_e, which) => archive.openFolder(which));
+// Opening a real folder is a desktop side effect, not a behaviour worth
+// asserting, and it hijacks the instructor's Explorer during QA. The handler
+// records the request and verifies the target exists instead of calling
+// shell.openPath, so the button wiring is still covered.
+ipcMain.handle('archive-open-folder', async (_event, which) => {
+  await archive.ensureArchive();
+  const name = archive.SUBFOLDERS.includes(which) ? which : 'inbox';
+  const target = archive.folderPath(name);
+  if (!fs.existsSync(target)) return { ok: false, message: '폴더가 없습니다' };
+  openedFolders.push(name);
+  return { ok: true, opened: target, dryRun: true };
+});
 ipcMain.handle('archive-scan', async () => ({ ok: true, ...(await archive.scanInbox()) }));
 ipcMain.handle('archive-propose', (_e, names) => archive.propose(names));
 ipcMain.handle('archive-proposals', async () => ({ ok: true, proposals: await archive.listProposals() }));
@@ -292,11 +304,13 @@ app.whenReady().then(async () => {
         return document.querySelector('#archive-count')?.textContent || '';
       })()
     `);
-    // shell.openPath is a no-op in this environment; assert the folder resolves
-    // and the UI reports no error instead.
+    // The handler is stubbed above, so this asserts the button asks for the
+    // inbox and that the inbox really resolves — without opening Explorer.
     check(results, 'qa14_openInbox',
-      fs.existsSync(path.join(archiveRoot, 'inbox')) && !openInbox.includes('열지 못'),
-      { inboxExists: true, ui: openInbox });
+      openedFolders.includes('inbox')
+      && fs.existsSync(path.join(archiveRoot, 'inbox'))
+      && !openInbox.includes('열지 못'),
+      { requested: openedFolders, inboxExists: true, ui: openInbox });
 
     mark('openInbox ok');
     // ------------------------------------------- 17. proposal + preview UI ---
@@ -552,6 +566,59 @@ app.whenReady().then(async () => {
     check(results, 'qa19_replaceIsNotCumulative',
       gitPatch.narration === 'replace 대상 문장입니다.', gitPatch.narration);
 
+    // ------- a full slide renders large and still fits the stage -----------
+    // A 1254x1254 slide shown at the default 104px caption size is unreadable,
+    // so an asset may ask for a large figure. It must actually be large AND the
+    // scene must still fit a 1366x768 stage.
+    fs.writeFileSync(path.join(archiveRoot, 'inbox', 'slide-a.png'), tinyPng(600, [40, 90, 200]));
+    fs.writeFileSync(path.join(archiveRoot, 'inbox', 'slide-b.png'), tinyPng(600, [200, 90, 40]));
+    fs.writeFileSync(path.join(archiveRoot, 'inbox', 'appendix-proposal.json'), JSON.stringify({
+      consumes: ['slide-a.png', 'slide-b.png'],
+      changes: [
+        { sceneId: 'appendix-x', action: 'new_scene', title: '부록 테스트', chapter: 'appendix-x', chapterId: 'appendix-x', chapterLabel: '부록', chapterTitle: '부록 테스트', blocks: [], confidence: 'high' },
+        { sceneId: 'appendix-x-2', action: 'new_scene', title: '부록 테스트 2', chapter: 'appendix-x', chapterId: 'appendix-x', chapterLabel: '부록', chapterTitle: '부록 테스트', blocks: [], confidence: 'high' },
+        { sceneId: 'appendix-x', action: 'asset', assetPath: 'inbox/slide-a.png', sourceName: 'slide-a.png', after: '부록 테스트', size: 'large', confidence: 'high' },
+        { sceneId: 'appendix-x-2', action: 'asset', assetPath: 'inbox/slide-b.png', sourceName: 'slide-b.png', after: '부록 테스트 2', size: 'large', confidence: 'high' }
+      ]
+    }), 'utf-8');
+    const apProposal = await archive.propose(['appendix-proposal.json']);
+    const apApply = apProposal.ok
+      ? await archive.applyProposal(apProposal.proposal.id,
+        apProposal.proposal.changes.map((c) => ({ id: c.id, decision: 'apply' })))
+      : { ok: false };
+    const apOverrides = await archive.readOverrides();
+    check(results, 'qa22_proposalCreatesChapterAndScenes',
+      apApply.ok === true
+      && apOverrides.chapters.some((c) => c.id === 'appendix-x')
+      && ['appendix-x', 'appendix-x-2'].every((id) => apOverrides.newScenes.some((s) => s.id === id))
+      && apOverrides.assets['appendix-x']
+      && String(apOverrides.assets['appendix-x'].archivePath).startsWith('applied/')
+      && !JSON.stringify(apOverrides).includes('base64'),
+      {
+        applyOk: apApply.ok,
+        hasChapter: apOverrides.chapters.some((c) => c.id === 'appendix-x'),
+        newSceneCount: apOverrides.newScenes.length,
+        newSceneIds: apOverrides.newScenes.map((s) => s.id),
+        assetPath: apOverrides.assets['appendix-x'] && apOverrides.assets['appendix-x'].archivePath,
+        hasBase64: JSON.stringify(apOverrides).includes('base64')
+      });
+
+    // A change naming a chapter that does not exist must fall back to a real
+    // chapter rather than store a dangling id the renderer cannot resolve.
+    fs.writeFileSync(path.join(archiveRoot, 'inbox', 'bad-chapter.json'), JSON.stringify({
+      changes: [{ sceneId: 'orphan-scene', action: 'new_scene', title: '고아 장면', chapter: 'no-such-chapter', blocks: [], confidence: 'high' }]
+    }), 'utf-8');
+    const orphanProposal = await archive.propose(['bad-chapter.json']);
+    if (orphanProposal.ok) {
+      await archive.applyProposal(orphanProposal.proposal.id,
+        orphanProposal.proposal.changes.map((c) => ({ id: c.id, decision: 'apply' })));
+    }
+    const curriculumForOrphan = JSON.parse(fs.readFileSync(path.join(root, 'src/content/v4/curriculum.json'), 'utf-8'));
+    const orphan = (await archive.readOverrides()).newScenes.find((s) => s.id === 'orphan-scene');
+    check(results, 'qa22_unknownChapterFallsBackSafely',
+      Boolean(orphan) && curriculumForOrphan.chapters.some((c) => c.id === orphan.chapter),
+      orphan ? { chapter: orphan.chapter } : 'no scene created');
+
     // ------- regression: two images cannot share one scene -------------------
     // A scene carries a single archive figure, and with a large image set the
     // filename guess collapses many files onto the same scene. Approving them
@@ -736,6 +803,39 @@ app.whenReady().then(async () => {
         };
       })()
     `);
+    const largeFigure = await win.webContents.executeJavaScript(`
+      (() => {
+        const api = window.__jucodingV4;
+        const idx = api.scenes.findIndex((s) => s.id === 'appendix-x');
+        if (idx < 0) return { noScene: true };
+        api.gotoScene(idx);
+        return { idx };
+      })()
+    `);
+    await wait(900);
+    const largeMetrics = await win.webContents.executeJavaScript(`
+      (() => {
+        const img = document.querySelector('#stage .v4-asset-large img');
+        const figure = document.querySelector('#stage .v4-asset-large');
+        const scene = document.querySelector('#stage .scene');
+        const stage = document.querySelector('.stage-wrap').getBoundingClientRect();
+        return {
+          found: Boolean(img),
+          natural: img ? img.naturalWidth : 0,
+          rendered: img ? Math.round(img.getBoundingClientRect().height) : 0,
+          sceneFits: scene ? scene.getBoundingClientRect().bottom <= stage.bottom + 1 : false,
+          overflowY: document.documentElement.scrollHeight > document.documentElement.clientHeight + 1
+        };
+      })()
+    `);
+    check(results, 'qa30_largeFigureRendersAndFits',
+      largeMetrics.found
+      && largeMetrics.natural > 0
+      && largeMetrics.rendered >= 200
+      && largeMetrics.sceneFits
+      && !largeMetrics.overflowY,
+      largeMetrics);
+
     check(results, 'qa30_archiveImageRendersInLecture',
       imageRender.sceneIndex === imageScene
       && imageRender.count === 1
@@ -862,6 +962,7 @@ app.whenReady().then(async () => {
       screenshotsSkipped: skippedScreenshots,
       home,
       scan,
+      openedFolders,
       preview,
       applied: applied.overrides,
       backupDirs,
