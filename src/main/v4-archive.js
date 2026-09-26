@@ -258,7 +258,7 @@ async function propose(fileNames) {
     return { ok: false, message: '변경안을 만들 수 없습니다. LectureOrganizerProvider를 등록해 주세요.' };
   }
 
-  const chapterById = new Map(chapterList().map((c) => [c.id, c]));
+  const chapterById = new Map((await chapterList()).map((c) => [c.id, c]));
   const sceneById = new Map(scenes.map((s) => [s.id, s]));
   const changes = await provider.propose({ materials, scenes });
   const proposal = {
@@ -318,10 +318,12 @@ async function listProposals() {
 }
 
 async function getProposal(id) {
-  const safe = path.basename(String(id || ''));
-  if (!safe.endsWith('.json')) return null;
+  // Proposal ids are stored as "<id>.json". basename plus a character
+  // whitelist means an id can never escape proposalsDir().
+  const base = path.basename(String(id || '')).replace(/\.json$/i, '');
+  if (!base || !/^[A-Za-z0-9._-]+$/.test(base)) return null;
   try {
-    return JSON.parse(await fsp.readFile(path.join(proposalsDir(), safe), 'utf-8'));
+    return JSON.parse(await fsp.readFile(path.join(proposalsDir(), `${base}.json`), 'utf-8'));
   } catch {
     return null;
   }
