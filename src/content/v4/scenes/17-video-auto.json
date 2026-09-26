@@ -4,8 +4,8 @@
   "chapter": "auto",
   "title": "영상 자동화",
   "narration": "영상 자동화는 아이디어를 Agent가 기획하고 Worker와 Remotion이 실행한 뒤 QA로 다듬어 완성합니다.",
-  "cue": "여기서 본인이 만든 Claude + Remotion 영상 사례를 보여주면 좋습니다. Agent는 판단, Worker는 특정 일을 수행하는 역할로 단순화하세요.",
-  "extra": "예시 흐름: 아이디어 → 기획/대본 Agent → Worker → Remotion → QA → 영상 완성.",
+  "cue": "Remotion 코드에서 useCurrentFrame이 매 프레임 번호를 준다는 점이 핵심입니다. 번호를 받아 위치를 바꾸면 그게 곧 영상입니다. Agent는 기획만, Worker는 렌더링만 합니다.",
+  "extra": "같은 원리로 대본·썸네일·오디오도 코드로 만들 수 있습니다. 도구 이름보다 '프레임 번호로 그림을 그린다'는 개념이 먼저입니다.",
   "simulations": [
     "mcp-worker"
   ]

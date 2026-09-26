@@ -117,7 +117,15 @@ function checkSimulations() {
   const sceneBlock = lecture.slice(lecture.indexOf('const SCENE_RENDERERS'), lecture.indexOf('// Data order wins'));
   // Scene timing must come from step data, not from code. Timers elsewhere in
   // the lecture (the resize debounce) are legitimate.
-  if (/setTimeout|setInterval/.test(sceneBlock)) {
+  //
+  // String literals are blanked first: a slide is allowed to show students a
+  // timer API in a code sample - that is the lesson, not a scheduling call -
+  // and a bare substring test cannot tell the two apart.
+  const codeOnly = sceneBlock
+    .replace(/`(?:[^`\\]|\\.)*`/g, '``')
+    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
+    .replace(/"(?:[^"\\\n]|\\.)*"/g, '""');
+  if (/setTimeout\s*\(|setInterval\s*\(/.test(codeOnly)) {
     fail('SCENE_RENDERERS 안에 타이머가 있습니다 — 시뮬레이션은 데이터 기반으로 실행되어야 합니다');
   } else if (!/requestAnimationFrame|setTimeout/.test(engine)) {
     fail('simulation engine 에 step 진행 타이머가 없습니다');

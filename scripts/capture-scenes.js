@@ -58,8 +58,11 @@ const errors = [];
 
 const playSpec = async (spec) => {
   const [sceneId, verb, arg] = spec.split(':');
-  const url = `file:///${path.join(root, 'src/content/v4/one-shot.html').replace(/\\/g, '/')}#scene=${sceneId}`;
-  await win.loadURL(url);
+  // Only the hash differs between specs, and a hash-only change is a same-page
+  // navigation: loadURL resolves without a reload, so the next spec would
+  // measure the previous scene. Blank the page in between to force a real load.
+  await win.loadURL('about:blank');
+  await win.loadURL(`file:///${path.join(root, 'src/content/v4/one-shot.html').replace(/\\/g, '/')}#scene=${sceneId}`);
   await wait(700);
 
   if (verb === 'click' && arg) {
@@ -92,13 +95,31 @@ const playSpec = async (spec) => {
       if (!el) return null;
       return el.scrollHeight > el.clientHeight + 1;
     })(),
+    // The stage clips with overflow:hidden, so content that runs past its box
+    // is silently invisible rather than scrollable. Compare the last child's
+    // edge against the stage instead of trusting scrollHeight.
+    stageCut: (() => {
+      const scene = document.querySelector('.scene');
+      const stageEl = document.querySelector('.stage-wrap');
+      if (!scene || !stageEl) return null;
+      const kids = [...scene.children];
+      const last = kids[kids.length - 1];
+      if (!last) return null;
+      return last.getBoundingClientRect().bottom - stageEl.getBoundingClientRect().bottom;
+    })(),
     lit: document.querySelectorAll('.rail-step.on').length,
-    shown: document.querySelectorAll('[data-done].show').length
+    shown: document.querySelectorAll('[data-done].show').length,
+    // A code sample that scrolls is a code sample the room cannot read, and the
+    // stage itself will not complain, so check it explicitly.
+    codeClipped: [...document.querySelectorAll('.term-body')]
+      .filter((el) => el.scrollHeight > el.clientHeight + 1)
+      .map((el) => (el.previousElementSibling ? '' : '') + el.textContent.slice(0, 28))
   }))()`);
 
   const name = `scene-${sceneId}${verb ? '-' + verb + '-' + arg : ''}.png`;
   fs.writeFileSync(path.join(outDir, name), (await win.webContents.capturePage()).toPNG());
-  const flags = [state.overflowY ? 'OVERFLOW-Y' : '', state.overflowX ? 'OVERFLOW-X' : '', state.stageOverflow ? 'STAGE-CUT' : '']
+  const flags = [state.overflowY ? 'OVERFLOW-Y' : '', state.overflowX ? 'OVERFLOW-X' : '', state.stageOverflow ? 'SCENE-SCROLLS' : '', state.stageCut > 1 ? `STAGE-CUT+${Math.round(state.stageCut)}px` : '']
+    .concat(state.codeClipped.map((t) => `CODE-CLIPPED: ${t}`))
     .filter(Boolean).join(' ');
   console.log(`✓ ${name}  rail=${state.lit} done=${state.shown} ${flags || 'fit'}`);
   if (flags) errors.push(`${sceneId}: ${flags}`);
@@ -113,6 +134,11 @@ app.whenReady().then(async () => {
   fs.mkdirSync(outDir, { recursive: true });
   win = new BrowserWindow({
     show: true,
+    // useContentSize: width/height describe the viewport, not the window frame.
+    // Without it the same "1366x768" window yields a 703px viewport under a
+    // window manager and a 768px one under xvfb, so the same slide measures
+    // differently in CI and on a desktop.
+    useContentSize: true,
     width: 1366,
     height: 768,
     backgroundColor: '#eef2ff',
@@ -125,7 +151,12 @@ app.whenReady().then(async () => {
   });
   win.setMenuBarVisibility(false);
   win.webContents.on('console-message', (_e, level, message) => {
-    if (level >= 2) errors.push(`console: ${message}`);
+    // Electron's dev-mode CSP advisory fires for the blank page this harness
+    // navigates through, and disappears once packaged. It is harness noise, not
+    // a finding about the lecture.
+    if (level >= 2 && !message.includes('Electron Security Warning')) {
+      errors.push(`console: ${message}`);
+    }
   });
 
   for (const spec of specs) {

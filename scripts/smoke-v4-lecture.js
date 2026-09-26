@@ -62,6 +62,11 @@ function check(results, name, ok, detail) {
 app.whenReady().then(async () => {
   const win = new BrowserWindow({
     show: VISIBLE,
+    // useContentSize: width/height describe the viewport, not the window frame.
+    // Without it the same "1366x768" window yields a 703px viewport under a
+    // window manager and a 768px one under xvfb, so the same slide measures
+    // differently in CI and on a desktop.
+    useContentSize: true,
     width: 1366,
     height: 768,
     backgroundColor: '#eef2ff',
@@ -128,6 +133,11 @@ app.whenReady().then(async () => {
   try {
     await win.loadFile(path.join(root, 'src/content/v4/one-shot.html'));
     await wait(600);
+    // Layout assertions below compare real element heights, and a hidden window
+    // never loads the webfont, so Korean text would fall back to a wider face and
+    // every slide would measure several lines too tall.
+    await win.webContents.executeJavaScript('document.fonts.ready');
+    await wait(150);
 
     // ---------------------------------------------------------------- deck ---
     const initial = await run('deck', `
@@ -158,19 +168,35 @@ app.whenReady().then(async () => {
       (() => {
         const api = window.__jucodingV4;
         const bad = [];
-        const height = document.querySelector('.stage-wrap').getBoundingClientRect();
+        const stage = document.querySelector('.stage-wrap').getBoundingClientRect();
         for (let i = 0; i < api.sceneCount; i += 1) {
           api.gotoScene(i);
           const scene = document.querySelector('#stage .scene');
           if (!scene) { bad.push({ i, why: 'no scene' }); continue; }
           if (document.documentElement.scrollWidth > document.documentElement.clientWidth + 1) bad.push({ i, why: 'overflowX' });
           if (document.documentElement.scrollHeight > document.documentElement.clientHeight + 1) bad.push({ i, why: 'overflowY' });
+          // The stage clips with overflow:hidden, so a scene that runs past it is
+          // silently amputated rather than scrollable, and documentElement never
+          // reports it. Two slides were losing their simulation button this way
+          // for a long time. Compare the last child's edge against the stage.
+          const kids = [...scene.children];
+          const last = kids[kids.length - 1];
+          if (last) {
+            const over = Math.round(last.getBoundingClientRect().bottom - stage.bottom);
+            if (over > 1) bad.push({ i, why: 'stageCut', over });
+          }
+          // A code sample that scrolls is a code sample the room cannot read.
+          for (const body of scene.querySelectorAll('.term-body')) {
+            if (body.scrollHeight > body.clientHeight + 1) {
+              bad.push({ i, why: 'codeClipped', sample: body.textContent.slice(0, 24) });
+            }
+          }
         }
         api.gotoScene(0);
         return { count: api.sceneCount, bad, titles: api.scenes.map((s) => s.id) };
       })()
     `);
-    check(results, 'qa22_allScenesRender', allScenes.bad.length === 0, allScenes.bad);
+        check(results, 'qa22_allScenesRender', allScenes.bad.length === 0, allScenes.bad);
 
     await capture('jucoding-v4-1366x768.png');
 

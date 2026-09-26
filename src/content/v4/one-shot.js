@@ -168,6 +168,9 @@
     return lines;
   };
 
+  // Lines are joined with no separator: each one is already a block, so a joining
+  // newline would add a second, empty line box per line inside `pre-wrap` and
+  // double the height of every code block.
   const termBlock = (o) => `
     <div class="term term-${o.size || 'md'}">
       <div class="term-bar">
@@ -175,7 +178,7 @@
         <span class="term-title">${esc(o.name || '터미널')}</span>
         ${o.note ? `<span class="term-note">${esc(o.note)}</span>` : ''}
       </div>
-      <pre class="term-body">${(o.lines || []).map((l) => termLine(l, o.lang || 'text')).join('\n')}</pre>
+      <pre class="term-body">${(o.lines || []).map((l) => termLine(l, o.lang || 'text')).join('')}</pre>
     </div>`;
 
   // The request round trip, one step per part that actually does work. `code` is
@@ -203,19 +206,21 @@
   };
 
   // Reads like `git log --graph`: one lane per branch, a curve where a lane
-  // splits off, and a hollow dot on tags.
+  // splits off or merges back, and a hollow dot on a tag. Drawn as a single SVG
+  // for the whole list, because per-row graphs cannot show the rails that connect
+  // one commit to the next.
   const gitGraph = (rows) => {
     const lanes = [];
     for (const r of rows) if (!lanes.includes(r.branch)) lanes.push(r.branch);
-    const x = (branch) => 15 + lanes.indexOf(branch) * 30;
-    const y = (i) => 15 + i * 30;
+    const laneX = (branch) => 14 + lanes.indexOf(branch) * 34;
+    const y = (i) => 14 + i * 30;
     const parts = [];
     rows.forEach((r, i) => {
-      const cx = x(r.branch);
+      const cx = laneX(r.branch);
       const cy = y(i);
       const color = BRANCH_HUE[r.branch] || '#755cff';
       if (i > 0) {
-        const px = x(rows[i - 1].branch);
+        const px = laneX(rows[i - 1].branch);
         if (px === cx) {
           parts.push(`<line x1="${cx}" y1="${cy - 30}" x2="${cx}" y2="${cy}" stroke="${color}" stroke-width="2.5"/>`);
         } else {
@@ -228,8 +233,8 @@
         ? `<circle cx="${cx}" cy="${cy}" r="6" fill="#fff" stroke="${color}" stroke-width="2.5"/>`
         : `<circle cx="${cx}" cy="${cy}" r="5.5" fill="${color}" stroke="#fff" stroke-width="2"/>`);
     });
-    const w = 30 + (lanes.length - 1) * 30;
-    const h = 30 + (rows.length - 1) * 30;
+    const w = 28 + (lanes.length - 1) * 34;
+    const h = 28 + (rows.length - 1) * 30;
     return `<svg class="git-graph" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMinYMin meet" role="img" aria-label="Git 브랜치 구조">${parts.join('')}</svg>`;
   };
 
@@ -242,6 +247,87 @@
         ${r.note ? `<em>${esc(r.note)}</em>` : ''}
       </div>
     </div>`;
+
+  // A whole commit list as one graph: the SVG spans every row, and the row
+  // labels are laid out by CSS grid against the same line height, so a label
+  // cannot drift away from its own commit.
+  const gitGraphBox = (rows) => {
+    const step = 30;
+    const stepCss = step + 5;
+    const h = 28 + (rows.length - 1) * step;
+    return `
+      <div class="git-graph-box">
+        <div class="git-rows" style="--gstep:${stepCss}px">
+          ${gitGraph(rows)}
+          <div class="git-labels">
+            ${rows.map((r) => `
+              <div class="git-label">
+                <code>${esc(r.sha)}</code>
+                <span>${esc(r.msg)}</span>
+                ${r.note ? `<em>${esc(r.note)}</em>` : ''}
+              </div>`).join('')}
+          </div>
+      </div>
+      </div>`;
+  };
+
+  // ---------------------------------------------------------------------------
+  // Primitive wiring: mock clicks drive the rail beside them.
+  //
+  // Timers are tracked in one list and cleared on every render, so navigating
+  // away mid-animation can never leave a stale step lighting up on the next
+  // scene. Nothing waits on transitionend, so the sequence still completes
+  // under prefers-reduced-motion, where every transition is disabled.
+  // ---------------------------------------------------------------------------
+  let railTimers = [];
+
+  const clearRail = () => {
+    railTimers.forEach(clearTimeout);
+    railTimers = [];
+  };
+
+  const runRail = (id) => {
+    clearRail();
+    const steps = [...stage.querySelectorAll(`[data-rail="${id}"] .rail-step`)];
+    if (!steps.length) return;
+    stage.querySelectorAll(`[data-rail="${id}"] .rail-step`).forEach((s) => s.classList.remove('on', 'done'));
+    stage.querySelectorAll(`[data-done="${id}"]`).forEach((el) => el.classList.remove('show'));
+    const button = stage.querySelector(`[data-run="${id}"]`);
+    button?.classList.add('running');
+
+    const gap = 620;
+    steps.forEach((s, i) => {
+      railTimers.push(setTimeout(() => {
+        s.classList.add('on');
+        if (i > 0) steps[i - 1].classList.add('done');
+      }, 200 + i * gap));
+    });
+    railTimers.push(setTimeout(() => {
+      steps.forEach((s) => s.classList.add('on', 'done'));
+      stage.querySelectorAll(`[data-done="${id}"]`).forEach((el) => el.classList.add('show'));
+      button?.classList.remove('running');
+    }, 200 + steps.length * gap));
+  };
+
+  const mountPrimitives = () => {
+    clearRail();
+    stage.querySelectorAll('[data-run]').forEach((button) => {
+      button.addEventListener('click', () => runRail(button.dataset.run));
+    });
+    stage.querySelectorAll('[data-pick-group]').forEach((group) => {
+      const name = group.dataset.pickGroup;
+      group.querySelectorAll('[data-pick]').forEach((item) => {
+        item.addEventListener('click', () => {
+          group.querySelectorAll('[data-pick]').forEach((other) => {
+            other.classList.toggle('picked', other === item);
+          });
+          stage.querySelectorAll(`[data-echo="${name}"]`).forEach((out) => {
+            out.textContent = item.dataset.pickLabel || '';
+          });
+        });
+      });
+    });
+  };
 
   const SCENE_RENDERERS = {
     cover: () => `
@@ -311,11 +397,9 @@
             lang: 'sh',
             lines: [
               '$ git status',
-              '  modified: src/content/v4/one-shot.js     ← AI가 고친 곳',
-              '  deleted:  assets/lecture/appendix/*.png   ← AI가 지운 곳',
-              '$ git checkout -- src/content/v4/one-shot.js',
-              '$ git restore assets/lecture/appendix',
-              { t: 'out', s: '● 6.2초 만에 원래대로 · 1,260줄 되돌림' }
+              '  modified: one-shot.js     ← AI가 고친 곳',
+              '  deleted:  appendix/*.png  ← AI가 지운 곳',
+              '$ git restore .    →  6.2초 만에 원래대로'
             ]
           })}
         </div>`,
@@ -326,7 +410,7 @@
             <div class="agent-card" style="background:linear-gradient(180deg,#eefaff,#fff)"><h3>💬 ChatGPT</h3><p>대화를 통해 설명하고 아이디어를 정리하는 데 강합니다.</p><div class="agent-mini-flow"><span>질문</span><i>→</i><span>아이디어 정리</span><i>→</i><span>답변</span></div></div>
             <div class="agent-card" style="background:linear-gradient(180deg,#f5f0ff,#fff)"><h3>⌨️ 터미널 Agent</h3><p>내 컴퓨터의 파일을 읽고, 명령을 실행하고, 코드를 직접 수정할 수 있습니다.</p><div class="agent-mini-flow"><span>목표</span><i>→</i><span>파일 수정</span><i>→</i><span>코드 실행</span><i>→</i><span>테스트</span></div></div>
           </div>
-          <div class="big-quote">ChatGPT: “<b>어떻게</b> 고쳐?” &nbsp;&nbsp; ↔ &nbsp;&nbsp; Agent: “<b>직접</b> 고쳐.”</div>
+          <div class="big-quote" style="font-size:23px;padding:13px 18px">ChatGPT: “<b>어떻게</b> 고쳐?” &nbsp;&nbsp; ↔ &nbsp;&nbsp; Agent: “<b>직접</b> 고쳐.”</div>
           ${assetFigure('chat-ai-vs-computer-agent.webp', '대화형 AI와 컴퓨터 Agent 비교표', '제2장 보조 자료이자 유인물. 화면 속 요금제·모델 순위는 수시로 바뀌므로 참고용으로만 보고 핵심 차이인 행동 범위에 집중합니다.', false)}
         </div>`,
     'web-terms': () => `
@@ -447,13 +531,60 @@
         </div>`,
     'planning-terms-b': () => `
         <div class="scene">
-          ${header('데이터와 기준 정리', 'ERD · DBML · <span class="grad">SSOT</span>', '데이터를 어떻게 기억할지, 그리고 프로젝트의 최종 기준이 무엇인지 정합니다.')}
-          <div class="grid three">
-            <div class="card soft-blue"><span class="num">05</span><div class="icon">🔗</div><h3>ERD = 데이터 관계 그림</h3><p>회원, 게시글, 댓글 같은 데이터가 서로 어떤 관계인지 그림으로 표현합니다.</p></div>
-            <div class="card soft-pink"><span class="num">06</span><div class="icon">⌨️</div><h3>DBML = 데이터 구조를 글로 표현</h3><p>데이터베이스 구조를 코드처럼 읽기 쉬운 글로 작성합니다.</p></div>
-            <div class="card soft-purple"><span class="num">07</span><div class="icon">📌</div><h3>SSOT = 최종 기준 문서</h3><p>의견이 다를 때 “이 문서가 최종 기준”이라고 정한 하나의 기준점입니다.</p></div>
+          ${header('화면은 두 번 그립니다', '같은 화면을 <span class="grad">배치</span>와 <span class="grad">동작</span>으로 나눠 봅니다', '9번에서 배운 Wireframe과 Prototype. 아래 두 화면은 배치가 똑같습니다.')}
+          <div class="wp-compare">
+            <div class="wp-col">
+              <div class="wp-head"><span class="tagp">Wireframe</span><b>배치만 · 클릭 없음</b></div>
+              ${mockWindow({
+                kind: 'sketch',
+                name: '와이어프레임',
+                pad: false,
+                body: `
+                  <div class="wp-body">
+                    <div class="wp-box head"></div>
+                    <div class="wp-cols">
+                      <div class="wp-side">
+                        <div class="wp-box h-sm"></div><div class="wp-box h-sm"></div><div class="wp-box h-sm"></div>
+                      </div>
+                      <div class="wp-main">
+                        <div class="wp-box title"></div>
+                        <div class="wp-box img"></div>
+                        <div class="wp-box line"></div><div class="wp-box line"></div>
+                        <div class="wp-box btn"></div>
+                      </div>
+                    </div>
+                  </div>`
+              })}
+              <span class="wp-note">뭘 어디에 둘지 정합니다</span>
+            </div>
+            <div class="wp-col">
+              <div class="wp-head"><span class="tagp live">Prototype</span><b>같은 배치 · 실제로 눌림</b></div>
+              <div class="ui-pick" data-pick data-pick-group="wp" data-pick-label="Prototype — 목록을 클릭하면 다음 화면으로 넘어갑니다">
+                ${mockWindow({
+                  kind: 'app',
+                  name: '프로토타입',
+                  pad: false,
+                  body: `
+                    <div class="wp-body real">
+                      <div class="wp-cols">
+                        <div class="wp-side">
+                          <div class="mock-row tiny" style="border-color:#cfc6ff;background:#f7f4ff">오늘의 기록<span class="tagp">12</span></div>
+                          <div class="mock-row tiny">지난 기록<span class="tagp">31</span></div>
+                        </div>
+                        <div class="wp-main">
+                          <div class="wp-rtitle">오늘의 기록</div>
+                          <div class="wp-rcard">AI Agent 첫 실습<span class="tagp">오늘</span></div>
+                          <div class="wp-rline"></div>
+                          <div class="wp-rline"></div>
+                          <button class="btn" style="align-self:flex-start">＋ 기록 추가</button>
+                        </div>
+                      </div>
+                    </div>`
+                })}
+              </div>
+              <span class="wp-note">옮겨 가기 전에 눌러봅니다</span>
+            </div>
           </div>
-          <div class="big-quote" style="font-size:23px">A 문서엔 로그인 있음 / B 문서엔 로그인 없음 → “<b>그래서 뭐가 맞아?</b>” → SSOT가 필요</div>
         </div>`,
     'project-flow': () => `
         <div class="scene">
@@ -489,12 +620,52 @@
         </div>`,
     git: () => `
         <div class="scene">
-          ${header('기록과 공유', 'Git과 GitHub는 <span class="grad">같은 것이 아닙니다.</span>', '코드를 안전하게 기록하고, 온라인에서 보관하고, 다른 사람과 공유합니다.')}
-          <div class="git-compare">
-            <div class="git-card" style="background:linear-gradient(180deg,#fff4ee,#fff)"><div class="git-logo">🔀</div><h3>Git</h3><strong>= 변경 기록</strong><p>내 코드가 어떻게 바뀌었는지 기록합니다. 필요하면 이전 상태로 돌아갈 수 있습니다.</p></div>
-            <div class="git-card" style="background:linear-gradient(180deg,#f1f3f8,#fff)"><div class="git-logo">🐙</div><h3>GitHub</h3><strong>= 온라인 저장소 · 협업 공간</strong><p>Git으로 기록한 프로젝트를 인터넷에 올려 보관하고 공유합니다.</p></div>
+          ${header('기록과 공유', 'Git은 <span class="grad">내 컴퓨터의 기록</span>, GitHub는 <span class="grad">그 기록을 모으는 곳</span>', '둘은 같은 것이 아닙니다. Git은 도구이고, GitHub는 그 도구로 남긴 기록을 보관·공유하는 서비스입니다.')}
+          <div class="git-split">
+            <div class="demo-col">
+              <span class="demo-cap">Git · <b>branch</b> = 갈래길, <b>worktree</b> = 갈래길을 켠 작업 폴더</span>
+              <div class="git-graph-box">
+                ${gitGraphBox([
+                  { branch: 'main', sha: 'a1b2c3d', msg: '초기 커밋' },
+                  { branch: 'main', sha: 'e4f5a6b', msg: '로그인 화면 완성' },
+                  { branch: 'feature', sha: '9c8d7e6', msg: '이미지 업로드 기능' },
+                  { branch: 'feature', sha: '2b3c4d5', msg: '썸네일 압축 추가' },
+                  { branch: 'main', sha: '7f8e9d0', msg: '기능 합치기 (merge)', note: 'feature → main' }
+                ])}
+                <div class="wt-grid">
+                  <div class="wt-hub">.git<br>기록 보관소</div>
+                  <div class="wt"><b>worktree 1</b><span>~/Jucoding<br>main · 서비스 서버</span></div>
+                  <div class="wt"><b>worktree 2</b><span>~/Jucoding-feat<br>feature · 새 기능</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="demo-col">
+              <span class="demo-cap">GitHub · <b>왜 필요한가</b></span>
+              ${termBlock({
+                name: 'GitHub에 올리기',
+                size: 'sm',
+                lang: 'sh',
+                lines: [
+                  '$ git remote add origin git@github.com:ju0o/Jucoding.git',
+                  '$ git push -u origin main',
+                  { t: 'out', s: "  → 백업 + 다른 사람에게 공유 + CI 자동 실행" }
+                ]
+              })}
+              <span class="demo-cap">GitHub에서 <b>clone</b>로 처음 받아 보기</span>
+              ${termBlock({
+                name: 'clone 실습',
+                size: 'sm',
+                lang: 'sh',
+                lines: [
+                  '$ git clone https://github.com/ju0o/Jucoding.git',
+                  '$ cd Jucoding',
+                  '$ npm install',
+                  '$ npm start',
+                  { t: 'out', s: '● 내 PC에 같은 프로젝트가 생겼습니다' }
+                ]
+              })}
+            </div>
           </div>
-          <div class="process"><div class="process-node"><div class="e">📄</div><b>파일 수정</b><span>오늘 작업</span></div><div class="process-arrow">→</div><div class="process-node"><div class="e">📸</div><b>Git 기록</b><span>Commit</span></div><div class="process-arrow">→</div><div class="process-node"><div class="e">☁️</div><b>GitHub</b><span>Push · 공유</span></div></div>
         </div>`,
     'program-choice': () => `
         <div class="scene">
@@ -508,36 +679,116 @@
         </div>`,
     mcp: () => `
         <div class="scene">
-          ${header('AI + TOOLS', 'MCP = AI가 다른 도구를 <span class="grad">사용하게 연결하는 방식</span>', 'Agent가 말만 하는 것을 넘어 브라우저, 파일, DB, 디자인 도구 등을 사용하도록 연결할 수 있습니다.')}
-          <div class="mcp-center">
-            <div class="mcp-card"><h3 style="font-size:27px;margin-top:0">쉽게 말하면</h3><div class="big-quote" style="font-size:24px;box-shadow:none">AI에게 <b style="color:#674fe9">손과 도구함</b>을 연결하는 공통 규격</div><p style="color:#6d7691;line-height:1.7">MCP 자체가 일을 하는 것은 아닙니다. Agent가 어떤 도구를 발견하고 호출할 수 있도록 연결해주는 방식입니다.</p></div>
-            <div class="mcp-card mcp-hub"><div class="mcp-core">MCP</div><span class="tool-orbit tool-1">🌐 브라우저</span><span class="tool-orbit tool-2">📁 파일</span><span class="tool-orbit tool-3">🎨 디자인</span><span class="tool-orbit tool-4">🗄️ DB</span></div>
+          ${header('AI + TOOLS', 'MCP는 API의 <span class="grad">도구 목록을 표준으로 붙이는 방식</span>', 'API는 문을 직접 열고, MCP는 열쇠 종류를 미리 알려줍니다. 둘 다 AI가 바깥을 쓰는 통로입니다.')}
+          <div class="api-compare">
+            <div class="api-col">
+              <div class="api-head"><span class="tagp alt">API</span><b>웹사이트·앱끼리 약속</b></div>
+              ${termBlock({
+                name: '서버에서 직접 호출',
+                size: 'sm',
+                lang: 'text',
+                lines: [
+                  'POST /api/notes  Authorization: Bearer …',
+                  'GET  /api/users/42',
+                  '',
+                  '  · 사용자가 만든 문법',
+                  '  · 기능을 하나씩 직접 코드로 연결',
+                  '  · 개발자만 쓸 수 있음'
+                ]
+              })}
+            </div>
+            <div class="api-col">
+              <div class="api-head"><span class="tagp mcp">MCP</span><b>AI가 쓸 공통 도구 목록</b></div>
+              ${termBlock({
+                name: '서버가 도구 목록을 알림',
+                size: 'sm',
+                lang: 'text',
+                lines: [
+                  'tools/list → [ search, create_note, send_mail ]',
+                  'tools/call { name: "create_note", … }',
+                  '',
+                  '  · 어느 AI에서든 같은 목록을 읽음',
+                  '  · 목록만 알면 AI가 알아서 골라 씀',
+                  '  · 프롬프트를 직접 만들지 않음'
+                ]
+              })}
+            </div>
           </div>
           ${assetFigure('automation-deploy-mcp.webp', '배포 · MCP · Agent · Worker 정리도', '제6장 대표 자료. 배포 흐름과 MCP 연결, Agent의 판단과 Worker의 실행 분담을 한 장으로 정리합니다.', false)}
         </div>`,
     'video-auto': () => `
         <div class="scene">
-          ${header('실전 예시 ①', '영상 제작을 <span class="grad">작업 흐름</span>으로 만들기', '한 번의 마법 버튼보다 역할을 나눠 연결하면 자동화가 이해하기 쉽습니다.')}
-          <div class="workflow">
-            <div class="work-node"><div class="we">💡</div><b>아이디어</b><span>콘텐츠 주제</span></div><span class="work-arrow">→</span>
-            <div class="work-node"><div class="we">🤖</div><b>Agent</b><span>기획 · 대본 · 장면 설계</span></div><span class="work-arrow">→</span>
-            <div class="work-node"><div class="we">⚙️</div><b>Worker</b><span>필요 작업 실행</span></div><span class="work-arrow">→</span>
-            <div class="work-node"><div class="we">🎬</div><b>Remotion</b><span>코드로 영상 제작</span></div><span class="work-arrow">→</span>
-            <div class="work-node"><div class="we">🔎</div><b>QA</b><span>문제 확인 · 수정</span></div><span class="work-arrow">→</span>
-            <div class="work-node"><div class="we">✅</div><b>완성</b><span>최종 영상</span></div>
+          ${header('실전 예시 ①', 'Remotion은 <span class="grad">영상을 코드로 만드는 것</span>', '꽤나게 생소한 도구지만, 실제로 열어 보면 도구보다 React 컴포넌트에 가깝습니다. <b style="color:#5b4ce0">Agent는 판단만</b> 하고, 렌더링은 Worker가 합니다.')}
+          <div class="demo-split wide">
+            <div class="demo-col">
+              <span class="demo-cap">실제로 실행한 명령</span>
+              ${termBlock({
+                name: 'remotion · 터미널',
+                size: 'md',
+                lang: 'sh',
+                lines: [
+                  '$ npx create-video@latest intro',
+                  '$ npx remotion studio src/index.ts   # 미리보기',
+                  '$ npx remotion render src/index.ts out.mp4',
+                  { t: 'out', s: '● 1920×1080 · 30fps · 12.4초' }
+                ]
+              })}
+            </div>
+            <div class="demo-col">
+              <span class="demo-cap">영상이 되는 코드 <b>src/scene.tsx</b></span>
+              ${termBlock({
+                name: 'scene.tsx · 매 프레임 계산',
+                size: 'md',
+                lang: 'js',
+                lines: [
+                  "import { AbsoluteFill, useCurrentFrame } from 'remotion';",
+                  'export const Intro = () => {',
+                  '  const frame = useCurrentFrame();',
+                  '  const x = frame * 6;   // 매 프레임 6px',
+                  '  const style = { transform: "translateX(" + x + "px)" };',
+                  '  return (',
+                  '    <AbsoluteFill style={{ background: "#111" }}>',
+                  '      <h1 style={style}>AI · Agent · 바이브코딩</h1>',
+                  '    </AbsoluteFill>',
+                  '  );',
+                  '};'
+                ]
+              })}
+            </div>
           </div>
         </div>`,
     'sns-auto': () => `
         <div class="scene">
-          ${header('실전 예시 ②', 'SNS도 <span class="grad">Agent + Worker</span>로 연결하기', '반복 작업을 줄이되, 게시 승인과 플랫폼 정책은 사람이 통제합니다.')}
-          <div class="workflow">
-            <div class="work-node"><div class="we">📝</div><b>콘텐츠 초안</b><span>Agent가 문구 정리</span></div><span class="work-arrow">→</span>
-            <div class="work-node"><div class="we">👀</div><b>사람 승인</b><span>문구 · 이미지 확인</span></div><span class="work-arrow">→</span>
-            <div class="work-node"><div class="we">🔌</div><b>SNS API</b><span>공식 연결 사용</span></div><span class="work-arrow">→</span>
-            <div class="work-node"><div class="we">📤</div><b>Worker</b><span>업로드 실행</span></div><span class="work-arrow">→</span>
-            <div class="work-node"><div class="we">📊</div><b>결과 확인</b><span>조회 · 반응 기록</span></div>
+          ${header('실전 예시 ②', 'SNS는 <span class="grad">사람이 승인한 뒤에만</span> 나갑니다', 'Worker는 계속 깨어 있지만, 결정적인 지점 하나는 사람이 눌러야 합니다.')}
+          <div class="sns-loop">
+            <div class="sns-node"><div class="we">📥</div><b>1. 수집</b><span>RSS·-mention 주기적으로 읽음</span><i>setInterval · 10분</i></div>
+            <span class="work-arrow">→</span>
+            <div class="sns-node"><div class="we">📝</div><b>2. 초안 생성</b><span>Agent가 문구·해시태그 작성</span><i>판단만 · 실행 없음</i></div>
+            <span class="work-arrow">→</span>
+            <div class="sns-node gate"><div class="we">🛑</div><b>3. 사람 승인</b><span>여기서 멈춥니다</span><i>기다림 · 24시간 초과 시 폐기</i></div>
+            <span class="work-arrow">→</span>
+            <div class="sns-node"><div class="we">📤</div><b>4. 게시</b><span>공식 API로만 업로드</span><i>Worker · 승인 후에만</i></div>
+            <span class="work-arrow">→</span>
+            <div class="sns-node"><div class="we">📊</div><b>5. 결과 기록</b><span>게시 ID·응답을 남김</span><i>실패 시 재시도 1회</i></div>
           </div>
-          <div class="big-quote" style="font-size:22px">자동화의 핵심은 “사람을 없애기”가 아니라 <span style="color:#674fe9">반복을 줄이고 통제 지점을 남기는 것</span></div>
+          <div class="sns-cycle">
+            <span class="cy">↺</span>
+            <div>
+              <b>Worker는 멈추지 않습니다</b>
+              <span>1번 수집부터 다시 도는 <b>백그라운드 루프</b>입니다. 3번에서만 사람의 입력을 기다리는 것이 핵심입니다.</span>
+            </div>
+            ${termBlock({
+              name: 'worker.ts',
+              size: 'sm',
+              lang: 'js',
+              lines: [
+                "setInterval(collect, 10 * 60 * 1000);",
+                'const draft = await agent.write(item);',
+                'const ok = await waitForApproval(draft);  // 사람',
+                'if (ok && !expired) await postViaOfficialApi(draft);'
+              ]
+            })}
+          </div>
         </div>`,
     'automation-form': () => `
         <div class="scene">
@@ -877,64 +1128,6 @@
     const target = scenes.findIndex((scene) => scene.chapter === id);
     if (target >= 0) gotoScene(target);
   }
-
-  // ---------------------------------------------------------------------------
-  // Primitive wiring: mock clicks drive the rail beside them.
-  //
-  // Timers are tracked in one list and cleared on every render, so navigating
-  // away mid-animation can never leave a stale step lighting up on the next
-  // scene. Nothing waits on transitionend, so the sequence still completes
-  // under prefers-reduced-motion, where every transition is disabled.
-  // ---------------------------------------------------------------------------
-  let railTimers = [];
-
-  const clearRail = () => {
-    railTimers.forEach(clearTimeout);
-    railTimers = [];
-  };
-
-  const runRail = (id) => {
-    clearRail();
-    const steps = [...stage.querySelectorAll(`[data-rail="${id}"] .rail-step`)];
-    if (!steps.length) return;
-    stage.querySelectorAll(`[data-rail="${id}"] .rail-step`).forEach((s) => s.classList.remove('on', 'done'));
-    stage.querySelectorAll(`[data-done="${id}"]`).forEach((el) => el.classList.remove('show'));
-    const button = stage.querySelector(`[data-run="${id}"]`);
-    button?.classList.add('running');
-
-    const gap = 620;
-    steps.forEach((s, i) => {
-      railTimers.push(setTimeout(() => {
-        s.classList.add('on');
-        if (i > 0) steps[i - 1].classList.add('done');
-      }, 200 + i * gap));
-    });
-    railTimers.push(setTimeout(() => {
-      steps.forEach((s) => s.classList.add('on', 'done'));
-      stage.querySelectorAll(`[data-done="${id}"]`).forEach((el) => el.classList.add('show'));
-      button?.classList.remove('running');
-    }, 200 + steps.length * gap));
-  };
-
-  const mountPrimitives = () => {
-    clearRail();
-    stage.querySelectorAll('[data-run]').forEach((button) => {
-      button.addEventListener('click', () => runRail(button.dataset.run));
-    });
-    stage.querySelectorAll('[data-pick-group]').forEach((group) => {
-      const name = group.dataset.pickGroup;
-      group.querySelectorAll('[data-pick]').forEach((item) => {
-        item.addEventListener('click', () => {
-          group.querySelectorAll('[data-pick]').forEach((other) => {
-            other.classList.toggle('picked', other === item);
-          });
-          stage.querySelectorAll(`[data-echo="${name}"]`).forEach((out) => {
-            out.textContent = item.dataset.pickLabel || '';
-          });
-        });
-      });
-    });
-  };
 
   function attachSceneInteractions(id) {
     if (id === 'project-form') {
