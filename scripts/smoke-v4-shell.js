@@ -361,6 +361,8 @@ app.whenReady().then(async () => {
     check(results, 'qa17_imageCardHasScenePicker',
       preview.cards.filter((c) => c.action === 'asset').every((c) => c.sceneOptions >= 21),
       preview.cards.filter((c) => c.action === 'asset').map((c) => c.sceneOptions));
+    // The picker must also offer the scenes the same proposal creates, or a
+    // slide deck has no matching option and every image lands on the first one.
 
     mark('preview ok');
     // ------------------------------- 18. reject everything -> no change ------
@@ -587,6 +589,10 @@ app.whenReady().then(async () => {
         apProposal.proposal.changes.map((c) => ({ id: c.id, decision: 'apply' })))
       : { ok: false };
     const apOverrides = await archive.readOverrides();
+    check(results, 'qa22_pickerIncludesProposalScenes',
+      apProposal.ok
+      && ['appendix-x', 'appendix-x-2'].every((id) => apProposal.proposal.sceneOptions.some((o) => o.id === id)),
+      (apProposal.proposal.sceneOptions || []).map((o) => o.id).filter((id) => id.startsWith('appendix-')));
     check(results, 'qa22_proposalCreatesChapterAndScenes',
       apApply.ok === true
       && apOverrides.chapters.some((c) => c.id === 'appendix-x')

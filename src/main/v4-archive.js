@@ -231,6 +231,29 @@ function safeParse(raw) {
   }
 }
 
+function sceneOptionList(scenes, chapterById, changes) {
+  const options = scenes.map((scene) => {
+    const chapter = chapterById.get(scene.chapter);
+    return {
+      id: scene.id,
+      title: scene.title,
+      chapterLabel: chapter ? `${chapter.label} · ${chapter.title}` : ''
+    };
+  });
+  const known = new Set(options.map((o) => o.id));
+  for (const change of changes) {
+    if (!change || change.action !== 'new_scene') continue;
+    if (known.has(change.sceneId)) continue;
+    known.add(change.sceneId);
+    options.push({
+      id: change.sceneId,
+      title: change.title || change.after || change.sceneId,
+      chapterLabel: change.chapterLabel || ''
+    });
+  }
+  return options;
+}
+
 function sourceFileList(materials) {
   return materials.map((m) => ({
     name: m.name, ext: m.ext, kind: m.kind, archivePath: m.archivePath, mime: m.mime || ''
@@ -335,16 +358,11 @@ async function propose(fileNames) {
     // images can be placed by a single JSON change set. Those files still have
     // to exist and be readable in the inbox.
     sourceFiles: sourceFileList(materials),
-    // An image proposal only guesses its target scene from the filename, so the
-    // review UI needs the full list to let the instructor place it deliberately.
-    sceneOptions: scenes.map((scene) => {
-      const chapter = chapterById.get(scene.chapter);
-      return {
-        id: scene.id,
-        title: scene.title,
-        chapterLabel: chapter ? `${chapter.label} · ${chapter.title}` : ''
-      };
-    }),
+    // The review UI needs the full list of target scenes. It must also include
+    // the scenes THIS proposal introduces, otherwise the picker has no matching
+    // option, silently falls back to the first entry, and every image in a slide
+    // deck aimed itself at the same scene.
+    sceneOptions: sceneOptionList(scenes, chapterById, changes),
     skipped,
     changes: changes.map((c) => {
       const scene = sceneById.get(c.sceneId);
