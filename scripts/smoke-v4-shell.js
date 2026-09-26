@@ -79,10 +79,51 @@ function check(results, name, ok, detail) {
   return Boolean(ok);
 }
 
-const TINY_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAKUlEQVR42mNk+M+ACzAxUBkMPQP/48f/GRgYGBgYGBgYGBgYAJKzCBcBAeJ0BFwAAAAAElFTkSuQmCC',
-  'base64'
-);
+
+// A real, decodable PNG. The previous inline base64 was truncated (no IEND
+// chunk), so image previews rendered as a broken image.
+function tinyPng(size = 16, rgb = [124, 107, 240]) {
+  const zlib = require('zlib');
+  const crcTable = (() => {
+    const t = new Int32Array(256);
+    for (let n = 0; n < 256; n += 1) {
+      let c = n;
+      for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      t[n] = c;
+    }
+    return t;
+  })();
+  const crc32 = (buf) => {
+    let crc = 0xffffffff;
+    for (let n = 0; n < buf.length; n += 1) crc = (crc >>> 8) ^ crcTable[(crc ^ buf[n]) & 0xff];
+    return (crc ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length, 0);
+    const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body), 0);
+    return Buffer.concat([len, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0);
+  ihdr.writeUInt32BE(size, 4);
+  ihdr[8] = 8; ihdr[9] = 2;
+  const raw = Buffer.alloc(size * (1 + size * 3));
+  let o = 0;
+  for (let y = 0; y < size; y += 1) {
+    raw[o++] = 0;
+    for (let x = 0; x < size; x += 1) { raw[o++] = rgb[0]; raw[o++] = rgb[1]; raw[o++] = rgb[2]; }
+  }
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', zlib.deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0))
+  ]);
+}
+const TINY_PNG = tinyPng();
 
 function seedInbox() {
   const inbox = path.join(archiveRoot, 'inbox');

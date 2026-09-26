@@ -29,7 +29,6 @@ process.env.JUCODING_ARCHIVE_ROOT = archiveRoot;
 app.setPath('userData', path.join(sandbox, 'userData'));
 
 const archive = require('../src/main/v4-archive');
-archive.registerArchiveScheme();
 
 const store = {};
 let win = null;
@@ -57,13 +56,54 @@ ipcMain.handle('archive-proposal', async (_e, id) => {
   return p ? { ok: true, proposal: p } : { ok: false, message: '없음' };
 });
 ipcMain.handle('archive-apply', (_e, id, d) => archive.applyProposal(id, d));
-ipcMain.handle('archive-overrides', async () => ({ ok: true, overrides: await archive.readOverrides() }));
+ipcMain.handle('archive-overrides', async () => ({ ok: true, overrides: await archive.resolveAssetUrls(await archive.readOverrides()) }));
 ipcMain.handle('organizer-status', () => require('../src/main/v4-organizer').status());
 
-const TINY_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAoAAAAKCAYAAACNMs+9AAAAWklEQVR42u3NMQEAAAgDoJnc6BpjDyQgd1XZzcxMTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NQCkU0kAAgP1c3VAAAAAElFTkSuQmCC',
-  'base64'
-);
+
+// A real, decodable PNG. The previous inline base64 was truncated (no IEND
+// chunk), so image previews rendered as a broken image.
+function tinyPng(size = 16, rgb = [124, 107, 240]) {
+  const zlib = require('zlib');
+  const crcTable = (() => {
+    const t = new Int32Array(256);
+    for (let n = 0; n < 256; n += 1) {
+      let c = n;
+      for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      t[n] = c;
+    }
+    return t;
+  })();
+  const crc32 = (buf) => {
+    let crc = 0xffffffff;
+    for (let n = 0; n < buf.length; n += 1) crc = (crc >>> 8) ^ crcTable[(crc ^ buf[n]) & 0xff];
+    return (crc ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length, 0);
+    const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body), 0);
+    return Buffer.concat([len, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0);
+  ihdr.writeUInt32BE(size, 4);
+  ihdr[8] = 8; ihdr[9] = 2;
+  const raw = Buffer.alloc(size * (1 + size * 3));
+  let o = 0;
+  for (let y = 0; y < size; y += 1) {
+    raw[o++] = 0;
+    for (let x = 0; x < size; x += 1) { raw[o++] = rgb[0]; raw[o++] = rgb[1]; raw[o++] = rgb[2]; }
+  }
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', zlib.deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0))
+  ]);
+}
+const TINY_PNG = tinyPng();
 
 function seed() {
   const inbox = path.join(archiveRoot, 'inbox');
@@ -75,6 +115,11 @@ function seed() {
     'Agent 판단은 LLM이, 실제 실행은 Worker가 나눠 맡습니다.'
   ].join('\n'), 'utf-8');
   fs.writeFileSync(path.join(inbox, 'mcp-example.png'), TINY_PNG);
+  // A real, full-size lecture visual so the review screen shows an actual picture.
+  fs.copyFileSync(
+    path.join(root, 'src/assets/lecture/v4/automation-deploy-mcp.webp'),
+    path.join(inbox, '배포-mcp-정리도.webp')
+  );
   fs.writeFileSync(path.join(inbox, 'syllabus.pdf'), Buffer.from('%PDF-1.4'));
 }
 
@@ -124,7 +169,6 @@ app.whenReady().then(async () => {
     app.exit(1);
     return;
   }
-  archive.registerArchiveProtocol();
   await archive.ensureArchive();
   seed();
   fs.mkdirSync(qaDir, { recursive: true });
@@ -155,6 +199,35 @@ app.whenReady().then(async () => {
     await shot.step();
     await capture(shot.name);
   }
+
+  // Image review: the picture itself, plus the scene picker.
+  await win.webContents.executeJavaScript(`
+    (async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const dlg = document.querySelector('#proposal-dialog');
+      if (dlg?.open) dlg.close();
+      document.querySelector('[data-section="library"]').click();
+      await sleep(250);
+      document.querySelector('#btn-scan-archive').click();
+      await sleep(1100);
+      document.querySelector('#btn-make-proposal').click();
+      await sleep(2800);
+      // Prefer the full-size lecture visual over the 16px swatch.
+      const cards = [...document.querySelectorAll('#proposal-changes .change-card[data-action="asset"]')];
+      const card = cards.find((c) => (c.querySelector('[data-asset-title]')?.value || '').endsWith('.webp')) || cards[0];
+      if (card) {
+        card.scrollIntoView({ block: 'center' });
+        const pick = card.querySelector('[data-scene-pick]');
+        const title = card.querySelector('[data-asset-title]');
+        if (pick) pick.value = 'mcp';
+        if (title) title.value = '배포 · MCP · Agent · Worker 정리도';
+        const cap = card.querySelector('[data-asset-caption]');
+        if (cap) cap.value = '제6장 수업에서 같이 보는 도표';
+      }
+      await sleep(500);
+    })()
+  `);
+  await capture('v41-09-archive-image-review.png');
 
   // Lecture: static scene with the simulation entry, then mid-playback.
   await win.webContents.executeJavaScript(`document.querySelector('#proposal-dialog')?.close()`);
